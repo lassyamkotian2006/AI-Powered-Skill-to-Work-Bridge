@@ -21,77 +21,72 @@ const router = express.Router();
  */
 router.get('/path', requireAuth, async (req, res) => {
     try {
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
-        if (!dbUser) {
-            return res.status(404).json({
-                error: 'User not found',
-                message: 'Please sync your data first: POST /skills/sync'
-            });
+        console.log(`📚 Generating learning path for ${req.session.user.login}`);
+
+        // Try to get user skills from database first
+        let userSkills = [];
+        try {
+            const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+            if (dbUser) {
+                userSkills = await dbService.getUserSkills(dbUser.id);
+            }
+        } catch (dbError) {
+            console.log('Database lookup skipped:', dbError.message);
         }
 
-        // Get user skills
-        const userSkills = await dbService.getUserSkills(dbUser.id);
-        if (userSkills.length === 0) {
-            return res.status(400).json({
-                error: 'No skills found',
-                message: 'Please analyze your skills first: POST /skills/analyze'
-            });
+        // If no database skills, use session skills if available
+        if (userSkills.length === 0 && req.session.extractedSkills) {
+            userSkills = req.session.extractedSkills.map(s => ({
+                skills: { name: s.name, category: s.category },
+                proficiency_level: s.level
+            }));
+        }
+
+        console.log(`   User has ${userSkills.length} skills`);
+
+        // Get job roles (try database first, then use hardcoded)
+        let jobRoles = [];
+        try {
+            jobRoles = await dbService.getJobRoles();
+        } catch (dbError) {
+            console.log('Using hardcoded job roles');
+        }
+
+        // If no job roles from database, use hardcoded ones
+        if (jobRoles.length === 0) {
+            jobRoles = getHardcodedJobRoles();
         }
 
         // Get job matches and skill gaps
-        const jobRoles = await dbService.getJobRoles();
-        const topMatches = jobMatcher.getTopJobMatches(
-            userSkills.map(s => ({ name: s.skills?.name, level: s.proficiency_level })),
-            jobRoles,
-            3
-        );
+        const skillsForMatching = userSkills.map(s => ({
+            name: s.skills?.name || s.name,
+            level: s.proficiency_level || s.level
+        }));
+
+        const topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, 5);
         const skillGaps = jobMatcher.getSkillGaps(topMatches);
 
         // Build learning path for each skill gap
-        const allSkills = await dbService.getAllSkills();
         const learningPath = [];
         let totalHours = 0;
 
-        for (const gap of skillGaps.slice(0, 5)) {
-            const skill = allSkills.find(
-                s => s.name.toLowerCase() === gap.name.toLowerCase()
-            );
+        for (const gap of skillGaps.slice(0, 8)) {
+            const estimatedHours = getEstimatedHours(gap.minLevel);
+            totalHours += estimatedHours;
 
-            if (skill) {
-                // Get resources from database
-                const resources = await dbService.getLearningResources(skill.id);
-
-                // Estimate learning time based on level
-                const estimatedHours = getEstimatedHours(gap.minLevel);
-                totalHours += estimatedHours;
-
-                // Generate AI advice if available
-                let advice = '';
-                try {
-                    advice = await aiService.generateLearningAdvice(
-                        gap.name,
-                        'beginner',
-                        gap.minLevel
-                    );
-                } catch (e) {
-                    // Fallback advice
-                }
-
-                learningPath.push({
-                    skill: gap.name,
-                    category: gap.category,
-                    currentLevel: 'beginner',
-                    targetLevel: gap.minLevel || 'intermediate',
-                    importance: gap.importance,
-                    neededFor: gap.neededFor,
-                    estimatedHours,
-                    resources: resources.length > 0
-                        ? formatResources(resources.slice(0, 3))
-                        : getDefaultResources(gap.name),
-                    advice
-                });
-            }
+            learningPath.push({
+                skill: gap.name,
+                category: gap.category,
+                currentLevel: 'beginner',
+                targetLevel: gap.minLevel || 'intermediate',
+                importance: gap.importance,
+                neededFor: gap.neededFor,
+                estimatedHours,
+                resources: getDefaultResources(gap.name)
+            });
         }
+
+        console.log(`✅ Generated learning path with ${learningPath.length} skills to learn\n`);
 
         res.json({
             success: true,
@@ -99,17 +94,84 @@ router.get('/path', requireAuth, async (req, res) => {
             summary: {
                 skillsToLearn: learningPath.length,
                 estimatedTotalHours: totalHours,
-                estimatedWeeks: Math.ceil(totalHours / 10), // 10 hours/week
-                targetJobs: topMatches.map(m => m.jobTitle)
+                estimatedWeeks: Math.ceil(totalHours / 10),
+                targetJobs: topMatches.slice(0, 3).map(m => m.jobTitle)
             },
             learningPath
         });
 
     } catch (error) {
         console.error('❌ Learning path error:', error);
-        res.status(500).json({ error: 'Failed to generate learning path' });
+        res.status(500).json({ error: 'Failed to generate learning path', message: error.message });
     }
 });
+
+/**
+ * Hardcoded job roles for when database is not available
+ */
+function getHardcodedJobRoles() {
+    return [
+        {
+            id: '1', title: 'Frontend Developer', slug: 'frontend-developer',
+            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 80000, demand_score: 85,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'React', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '2', title: 'Backend Developer', slug: 'backend-developer',
+            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 85000, demand_score: 80,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Node.js', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'REST API', category: 'concept' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '3', title: 'Full Stack Developer', slug: 'fullstack-developer',
+            experience_level: 'mid', salary_range_min: 70000, salary_range_max: 110000, demand_score: 90,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'React', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Node.js', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '4', title: 'React Developer', slug: 'react-developer',
+            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 90000, demand_score: 85,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'React', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Redux', category: 'framework' } }
+            ]
+        },
+        {
+            id: '5', title: 'DevOps Engineer', slug: 'devops-engineer',
+            experience_level: 'mid', salary_range_min: 80000, salary_range_max: 130000, demand_score: 75,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Kubernetes', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'AWS', category: 'cloud' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'CI/CD', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Linux', category: 'tool' } }
+            ]
+        }
+    ];
+}
 
 /**
  * GET /learning/resources/:skillName

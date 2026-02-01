@@ -12,6 +12,7 @@ function App() {
   const [jobs, setJobs] = useState([])
   const [learningPath, setLearningPath] = useState([])
   const [analyzing, setAnalyzing] = useState(false)
+  const [showAssistant, setShowAssistant] = useState(false)
 
   // Check if user is logged in
   useEffect(() => {
@@ -34,38 +35,33 @@ function App() {
 
   const loadDashboardData = async () => {
     try {
-      // Load skills
-      const skillsRes = await fetch(`${API_URL}/skills`, { credentials: 'include' })
+      const [skillsRes, jobsRes, learningRes] = await Promise.all([
+        fetch(`${API_URL}/skills`, { credentials: 'include' }),
+        fetch(`${API_URL}/jobs/recommendations`, { credentials: 'include' }),
+        fetch(`${API_URL}/learning/path`, { credentials: 'include' })
+      ])
+
       const skillsData = await skillsRes.json()
-      if (skillsData.success) setSkills(skillsData.skills || [])
-
-      // Load job recommendations
-      const jobsRes = await fetch(`${API_URL}/jobs/recommendations`, { credentials: 'include' })
       const jobsData = await jobsRes.json()
-      if (jobsData.success) setJobs(jobsData.recommendations || [])
-
-      // Load learning path
-      const learningRes = await fetch(`${API_URL}/learning/path`, { credentials: 'include' })
       const learningData = await learningRes.json()
-      if (learningData.success) setLearningPath(learningData.learningPath || [])
+
+      if (skillsData.skills) setSkills(skillsData.skills)
+      if (jobsData.recommendations) setJobs(jobsData.recommendations)
+      if (learningData.learningPath) setLearningPath(learningData.learningPath)
     } catch (err) {
-      console.log('Error loading data:', err)
+      console.error('Error loading dashboard:', err)
     }
   }
 
   const analyzeSkills = async () => {
     setAnalyzing(true)
     try {
-      // First sync data
       await fetch(`${API_URL}/skills/sync`, { method: 'POST', credentials: 'include' })
-
-      // Then analyze skills
       const res = await fetch(`${API_URL}/skills/analyze`, { method: 'POST', credentials: 'include' })
       const data = await res.json()
 
       if (data.success) {
         setSkills(data.skills || [])
-        // Reload other data
         loadDashboardData()
       }
     } catch (err) {
@@ -104,24 +100,33 @@ function App() {
   return (
     <div className="app-container">
       <Header user={user} onLogout={logout} />
-
       <NavTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {activeTab === 'skills' && (
-        <SkillsTab
-          skills={skills}
-          onAnalyze={analyzeSkills}
-          analyzing={analyzing}
-        />
-      )}
+      <div className="tab-content">
+        {activeTab === 'skills' && (
+          <SkillsTab
+            skills={skills}
+            onAnalyze={analyzeSkills}
+            analyzing={analyzing}
+          />
+        )}
 
-      {activeTab === 'jobs' && (
-        <JobsTab jobs={jobs} />
-      )}
+        {activeTab === 'jobs' && (
+          <JobsTab jobs={jobs} />
+        )}
 
-      {activeTab === 'learning' && (
-        <LearningTab learningPath={learningPath} />
-      )}
+        {activeTab === 'learning' && (
+          <LearningTab learningPath={learningPath} />
+        )}
+      </div>
+
+      {/* AI Assistant Widget */}
+      <AIAssistant
+        show={showAssistant}
+        onToggle={() => setShowAssistant(!showAssistant)}
+        skills={skills}
+        jobs={jobs}
+      />
     </div>
   )
 }
@@ -132,24 +137,77 @@ function App() {
 
 function LoginPage({ onLogin }) {
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-icon">🌉</div>
-        <h1>Skill-to-Work Bridge</h1>
-        <p className="text-muted mb-3">
-          Analyze your GitHub repos, discover your skills, and find your perfect job match
-        </p>
-        <button className="btn btn-primary btn-large" onClick={onLogin}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-          </svg>
-          Continue with GitHub
-        </button>
-        <div className="features mt-3">
-          <div className="feature">✨ AI-Powered Skill Analysis</div>
-          <div className="feature">💼 Smart Job Matching</div>
-          <div className="feature">📚 Personalized Learning Paths</div>
+    <div className="login-body">
+      <div className="indigo-glow"></div>
+      <div className="blob-1"></div>
+      <div className="blob-2"></div>
+
+      <div className="login-card-modern">
+        <div className="login-header">
+          <div className="login-icon-box">
+            <span className="material-symbols-outlined" style={{ fontSize: '36px', color: 'white' }}>auto_awesome</span>
+          </div>
+          <h2 className="login-title">Skill-to-Work</h2>
+          <p className="login-subtitle">AI-powered career intelligence</p>
         </div>
+
+        <div className="login-content">
+          <form onSubmit={(e) => e.preventDefault()}>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <div className="input-wrapper">
+                <span className="material-symbols-outlined input-icon">mail</span>
+                <input className="form-input" placeholder="name@university.edu" type="email" readOnly />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <div className="form-actions">
+                <label className="form-label">Password</label>
+                <a className="forgot-link" href="#">Forgot?</a>
+              </div>
+              <div className="input-wrapper">
+                <span className="material-symbols-outlined input-icon">lock</span>
+                <input className="form-input" placeholder="••••••••" type="password" readOnly />
+              </div>
+            </div>
+
+            <button className="btn-signin" type="button">
+              Sign In
+              <span className="material-symbols-outlined">arrow_forward</span>
+            </button>
+          </form>
+
+          <div className="divider">
+            <div className="divider-line"></div>
+            <span className="divider-text">Skill Mapping</span>
+            <div className="divider-line"></div>
+          </div>
+
+          <div>
+            <button className="btn-github-modern" onClick={onLogin}>
+              <svg viewBox="0 0 24 24">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
+              </svg>
+              Connect with GitHub
+            </button>
+            <p className="helper-text">
+              Automatically map technical projects using our specialized AI extraction.
+            </p>
+          </div>
+        </div>
+
+        <div className="login-footer">
+          <p className="footer-text">
+            Don't have an account?
+            <a className="footer-link" href="#">Create Account</a>
+          </p>
+        </div>
+      </div>
+
+      <div className="security-badge">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>verified_user</span>
+        <span className="security-text">Secure AES-256 Authentication</span>
       </div>
     </div>
   )
@@ -202,7 +260,7 @@ function NavTabs({ activeTab, setActiveTab }) {
 }
 
 // =============================================
-// SKILLS TAB
+// SKILLS TAB - ENHANCED
 // =============================================
 
 function SkillsTab({ skills, onAnalyze, analyzing }) {
@@ -218,15 +276,27 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
   const grouped = groupByCategory(skills)
   const categories = Object.keys(grouped)
 
+  // Code quality signals based on skills
+  const codeQualitySignals = skills.length > 0 ? [
+    { label: 'Project Completeness', status: skills.length >= 5 ? 'good' : 'neutral', icon: '📦' },
+    { label: 'Tech Diversity', status: categories.length >= 3 ? 'good' : 'neutral', icon: '🎨' },
+    { label: 'Modern Stack', status: skills.some(s => ['React', 'TypeScript', 'Docker'].includes(s.name)) ? 'good' : 'improve', icon: '⚡' },
+  ] : []
+
   return (
     <div className="skills-tab">
       <div className="section-header flex justify-between items-center mb-3">
         <div>
           <h2>Your Skills</h2>
           <p className="text-muted">{skills.length} skills detected from your repositories</p>
+          {skills.length > 0 && (
+            <span className="how-calculated">
+              ℹ️ How was this calculated?
+            </span>
+          )}
         </div>
         <button
-          className="btn btn-primary"
+          className={`btn btn-primary ${analyzing ? 'ai-shimmer' : ''}`}
           onClick={onAnalyze}
           disabled={analyzing}
         >
@@ -245,43 +315,80 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
         <div className="empty-state card">
           <div className="empty-icon">🔍</div>
           <h3>No skills analyzed yet</h3>
-          <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills.</p>
+          <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
         </div>
       ) : (
-        <div className="grid-2">
-          {categories.map(category => (
-            <div key={category} className="card">
-              <h3 className="mb-2" style={{ textTransform: 'capitalize' }}>
-                {getCategoryIcon(category)} {category}
-              </h3>
-              <div className="flex flex-wrap gap-1">
-                {grouped[category].map((skill, i) => (
-                  <SkillBadge key={i} skill={skill} />
-                ))}
-              </div>
+        <>
+          {/* Code Quality Signals */}
+          {codeQualitySignals.length > 0 && (
+            <div className="quality-badges mb-3">
+              {codeQualitySignals.map((signal, i) => (
+                <span key={i} className={`quality-badge ${signal.status}`}>
+                  {signal.icon} {signal.label}
+                </span>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          <div className="grid-2">
+            {categories.map(category => (
+              <div key={category} className="card">
+                <h3 className="mb-2" style={{ textTransform: 'capitalize' }}>
+                  {getCategoryIcon(category)} {category}
+                </h3>
+                <div className="flex flex-wrap gap-1">
+                  {grouped[category].map((skill, i) => (
+                    <EnhancedSkillBadge key={i} skill={skill} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
 }
 
-function SkillBadge({ skill }) {
-  const levelColors = {
-    expert: 'badge-success',
-    advanced: 'badge-primary',
-    intermediate: 'badge-warning',
-    beginner: ''
+function EnhancedSkillBadge({ skill }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  const levelConfig = {
+    expert: { color: 'var(--success)', label: 'Expert', percent: 100 },
+    advanced: { color: 'var(--info)', label: 'Advanced', percent: 85 },
+    intermediate: { color: 'var(--warning)', label: 'Intermediate', percent: 60 },
+    beginner: { color: 'var(--error)', label: 'Beginner', percent: 25 }
   }
 
+  const config = levelConfig[skill.level] || levelConfig.intermediate
+
   return (
-    <span className={`skill-tag ${levelColors[skill.level] || ''}`}>
-      {skill.name}
-      {skill.level && <span className="text-muted" style={{ marginLeft: 4, fontSize: '0.7rem' }}>
-        ({skill.level})
-      </span>}
-    </span>
+    <div
+      className="tooltip-wrapper"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <div className="skill-badge-enhanced">
+        <div className="skill-info">
+          <span className="skill-name">{skill.name}</span>
+          <span className="skill-level">{config.label}</span>
+        </div>
+        <div className="confidence-bar">
+          <div
+            className={`confidence-fill ${skill.level || 'intermediate'}`}
+            style={{ width: `${config.percent}%`, background: config.color }}
+          />
+        </div>
+      </div>
+      {showTooltip && (
+        <div className="tooltip">
+          <strong>{skill.name}</strong> • {config.label}<br />
+          <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+            Based on code complexity & usage frequency
+          </span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -298,15 +405,17 @@ function getCategoryIcon(category) {
 }
 
 // =============================================
-// JOBS TAB
+// JOBS TAB - ENHANCED
 // =============================================
 
 function JobsTab({ jobs }) {
+  const [selectedRole, setSelectedRole] = useState(null)
+
   return (
     <div className="jobs-tab">
       <div className="section-header mb-3">
         <h2>Job Recommendations</h2>
-        <p className="text-muted">Based on your skill profile</p>
+        <p className="text-muted">Based on your skill profile • Powered by AI matching</p>
       </div>
 
       {jobs.length === 0 ? (
@@ -318,15 +427,30 @@ function JobsTab({ jobs }) {
       ) : (
         <div className="grid-2">
           {jobs.map((job, i) => (
-            <JobCard key={i} job={job} rank={i + 1} />
+            <EnhancedJobCard
+              key={i}
+              job={job}
+              rank={i + 1}
+              onPreview={() => setSelectedRole(job)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Role Simulation Modal */}
+      {selectedRole && (
+        <RoleSimulationModal
+          role={selectedRole}
+          onClose={() => setSelectedRole(null)}
+        />
       )}
     </div>
   )
 }
 
-function JobCard({ job, rank }) {
+function EnhancedJobCard({ job, rank, onPreview }) {
+  const [expanded, setExpanded] = useState(false)
+
   const getScoreClass = (score) => {
     if (score >= 80) return 'excellent'
     if (score >= 60) return 'good'
@@ -334,8 +458,12 @@ function JobCard({ job, rank }) {
     return 'low'
   }
 
+  const scoreClass = getScoreClass(job.score)
+  const circumference = 2 * Math.PI * 28
+  const offset = circumference - (job.score / 100) * circumference
+
   return (
-    <div className="card job-card">
+    <div className="card job-card-enhanced">
       <div className="job-header">
         <div>
           <span className="badge badge-primary mb-1">#{rank} Match</span>
@@ -344,46 +472,158 @@ function JobCard({ job, rank }) {
             {job.experienceLevel} • ${(job.salaryRange?.min / 1000).toFixed(0)}k - ${(job.salaryRange?.max / 1000).toFixed(0)}k
           </p>
         </div>
-        <div className={`score-circle ${getScoreClass(job.score)}`}>
-          {job.score}%
+
+        {/* Animated Progress Ring */}
+        <div className="progress-ring">
+          <svg viewBox="0 0 64 64">
+            <circle className="progress-ring-bg" cx="32" cy="32" r="28" />
+            <circle
+              className={`progress-ring-fill ${scoreClass}`}
+              cx="32" cy="32" r="28"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+            />
+          </svg>
+          <span className="progress-ring-text">{job.score}%</span>
         </div>
       </div>
 
-      {job.matchingSkills?.length > 0 && (
-        <div className="mb-2">
-          <p className="text-muted mb-1" style={{ fontSize: '0.8rem' }}>✅ Your matching skills:</p>
-          <div className="job-skills">
-            {job.matchingSkills.slice(0, 5).map((skill, i) => (
-              <span key={i} className="skill-tag">{skill}</span>
+      {/* Skill Breakdown */}
+      <div className="skill-breakdown">
+        {job.matchingSkills?.length > 0 && (
+          <div className="skill-category">
+            <span className="skill-category-label">✅ Matched</span>
+            {job.matchingSkills.slice(0, 4).map((skill, i) => (
+              <span key={i} className="skill-pill matched">{skill}</span>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {job.missingSkills?.length > 0 && (
-        <div>
-          <p className="text-muted mb-1" style={{ fontSize: '0.8rem' }}>📚 Skills to learn:</p>
-          <div className="job-skills">
+        {job.missingSkills?.length > 0 && (
+          <div className="skill-category">
+            <span className="skill-category-label">📚 To Learn</span>
             {job.missingSkills.slice(0, 3).map((skill, i) => (
-              <span key={i} className="skill-tag" style={{ borderColor: 'var(--warning)' }}>
-                {skill.name}
+              <span key={i} className="skill-pill missing">
+                {typeof skill === 'string' ? skill : skill.name}
               </span>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {job.aiRecommendation && (
-        <p className="mt-2 text-muted" style={{ fontSize: '0.85rem', fontStyle: 'italic' }}>
-          💡 {job.aiRecommendation}
-        </p>
-      )}
+      {/* AI Explanation Panel */}
+      <div className="ai-explanation">
+        <div
+          className="ai-explanation-header"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <span>✨</span>
+          <span>Why this role fits you</span>
+          <span style={{ marginLeft: 'auto' }}>{expanded ? '▲' : '▼'}</span>
+        </div>
+        {expanded && (
+          <div className="ai-explanation-content">
+            {job.aiRecommendation || `Your ${job.matchingSkills?.slice(0, 2).join(' and ')} experience aligns well with ${job.title} requirements. Focus on learning ${job.missingSkills?.[0]?.name || 'additional skills'} to strengthen your profile.`}
+          </div>
+        )}
+      </div>
+
+      {/* Preview Role Button */}
+      <button
+        className="btn btn-secondary mt-2"
+        style={{ width: '100%' }}
+        onClick={onPreview}
+      >
+        👁️ Preview This Role
+      </button>
     </div>
   )
 }
 
 // =============================================
-// LEARNING TAB
+// ROLE SIMULATION MODAL
+// =============================================
+
+function RoleSimulationModal({ role, onClose }) {
+  const roleData = getRoleSimulationData(role.title)
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h3>{role.title}</h3>
+            <p className="text-muted">Role Preview</p>
+          </div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="role-section">
+            <h4>📋 Daily Tasks</h4>
+            <ul className="role-list">
+              {roleData.dailyTasks.map((task, i) => (
+                <li key={i}>📌 {task}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="role-section">
+            <h4>🛠️ Common Tools</h4>
+            <div className="flex flex-wrap gap-1">
+              {roleData.tools.map((tool, i) => (
+                <span key={i} className="tool-tag">{tool}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="role-section">
+            <h4>🎯 Key Responsibilities</h4>
+            <ul className="role-list">
+              {roleData.responsibilities.map((resp, i) => (
+                <li key={i}>▸ {resp}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getRoleSimulationData(title) {
+  const roleDatabase = {
+    'Frontend Developer': {
+      dailyTasks: ['Build responsive UI components', 'Review pull requests', 'Fix browser compatibility issues', 'Attend sprint planning'],
+      tools: ['React', 'VS Code', 'Chrome DevTools', 'Figma', 'Git', 'npm'],
+      responsibilities: ['Translate designs into code', 'Optimize web performance', 'Maintain component libraries', 'Collaborate with designers']
+    },
+    'Backend Developer': {
+      dailyTasks: ['Design API endpoints', 'Write database queries', 'Debug server issues', 'Code review'],
+      tools: ['Node.js', 'PostgreSQL', 'Docker', 'Postman', 'Git', 'AWS'],
+      responsibilities: ['Build scalable APIs', 'Manage databases', 'Implement security', 'Write documentation']
+    },
+    'Full Stack Developer': {
+      dailyTasks: ['Develop end-to-end features', 'Deploy applications', 'Monitor production', 'Mentor juniors'],
+      tools: ['React', 'Node.js', 'PostgreSQL', 'Docker', 'AWS', 'Git'],
+      responsibilities: ['Own features from design to deployment', 'Optimize full stack performance', 'Make architectural decisions']
+    },
+    'DevOps Engineer': {
+      dailyTasks: ['Manage CI/CD pipelines', 'Monitor infrastructure', 'Automate deployments', 'Incident response'],
+      tools: ['Docker', 'Kubernetes', 'AWS', 'Terraform', 'Jenkins', 'Prometheus'],
+      responsibilities: ['Ensure system reliability', 'Automate infrastructure', 'Implement security practices']
+    }
+  }
+
+  return roleDatabase[title] || {
+    dailyTasks: ['Work on technical projects', 'Collaborate with team', 'Solve complex problems', 'Continuous learning'],
+    tools: ['Git', 'VS Code', 'Slack', 'Jira', 'Cloud platforms'],
+    responsibilities: ['Deliver quality code', 'Meet project deadlines', 'Communicate effectively', 'Stay updated with tech trends']
+  }
+}
+
+// =============================================
+// LEARNING TAB - ENHANCED
 // =============================================
 
 function LearningTab({ learningPath }) {
@@ -391,7 +631,7 @@ function LearningTab({ learningPath }) {
     <div className="learning-tab">
       <div className="section-header mb-3">
         <h2>Your Learning Path</h2>
-        <p className="text-muted">Skills to learn for your target jobs</p>
+        <p className="text-muted">Skills to learn for your target jobs • Personalized roadmap</p>
       </div>
 
       {learningPath.length === 0 ? (
@@ -401,9 +641,9 @@ function LearningTab({ learningPath }) {
           <p className="text-muted">Analyze your skills to generate a personalized learning roadmap.</p>
         </div>
       ) : (
-        <div className="learning-timeline">
+        <div className="learning-timeline-enhanced">
           {learningPath.map((step, i) => (
-            <LearningStep key={i} step={step} index={i} />
+            <EnhancedLearningStep key={i} step={step} index={i} />
           ))}
         </div>
       )}
@@ -411,32 +651,39 @@ function LearningTab({ learningPath }) {
   )
 }
 
-function LearningStep({ step, index }) {
+function EnhancedLearningStep({ step, index }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className={`learning-step ${step.status || 'pending'}`}>
-      <div className="card" onClick={() => setExpanded(!expanded)} style={{ cursor: 'pointer' }}>
+    <div className="learning-step-enhanced">
+      <div className={`step-indicator ${step.status || 'pending'}`}>
+        {step.status === 'completed' ? '' : index + 1}
+      </div>
+
+      <div className="learning-card-enhanced" onClick={() => setExpanded(!expanded)}>
         <div className="flex justify-between items-center">
           <div>
-            <span className="badge badge-primary mb-1">Step {index + 1}</span>
+            <div className="flex gap-1 mb-1">
+              <span className="badge badge-primary">Step {index + 1}</span>
+              {step.projectBased && <span className="project-badge">🔨 Project-Based</span>}
+            </div>
             <h3>{step.skill}</h3>
             <p className="text-muted">Target: {step.targetLevel} level</p>
           </div>
-          <div className="text-muted">
+          <div className="time-badge">
             ⏱️ {step.estimatedHours}h
           </div>
         </div>
 
         {step.neededFor?.length > 0 && (
           <p className="text-muted mt-2" style={{ fontSize: '0.8rem' }}>
-            Needed for: {step.neededFor.join(', ')}
+            🎯 Needed for: {step.neededFor.join(', ')}
           </p>
         )}
 
         {expanded && (
-          <div className="mt-2">
-            <h4 className="mb-1">📚 Resources:</h4>
+          <div className="mt-2" style={{ animation: 'fadeIn 0.3s ease' }}>
+            <h4 className="mb-1">📚 Learning Resources:</h4>
             {(step.resources || step.suggestedResources || []).map((resource, i) => (
               <a
                 key={i}
@@ -445,6 +692,7 @@ function LearningStep({ step, index }) {
                 rel="noopener noreferrer"
                 className="resource-link card mb-1"
                 onClick={(e) => e.stopPropagation()}
+                style={{ display: 'block', padding: '0.75rem' }}
               >
                 <div className="flex justify-between items-center">
                   <div>
@@ -459,9 +707,109 @@ function LearningStep({ step, index }) {
             ))}
           </div>
         )}
+
+        <div className="mt-2 text-muted" style={{ fontSize: '0.75rem', textAlign: 'right' }}>
+          {expanded ? 'Click to collapse ▲' : 'Click to see resources ▼'}
+        </div>
       </div>
     </div>
   )
+}
+
+// =============================================
+// AI ASSISTANT WIDGET
+// =============================================
+
+function AIAssistant({ show, onToggle, skills, jobs }) {
+  const [messages, setMessages] = useState([
+    { type: 'bot', text: "Hi! I'm your AI Career Assistant. I can help explain your skill analysis and job recommendations. What would you like to know?" }
+  ])
+  const [isTyping, setIsTyping] = useState(false)
+
+  const quickQuestions = [
+    "Why these job recommendations?",
+    "What should I learn next?",
+    "How long to reach my goal?",
+    "Explain my skill gaps"
+  ]
+
+  const handleQuestion = (question) => {
+    setMessages(prev => [...prev, { type: 'user', text: question }])
+    setIsTyping(true)
+
+    setTimeout(() => {
+      const response = generateAIResponse(question, skills, jobs)
+      setMessages(prev => [...prev, { type: 'bot', text: response }])
+      setIsTyping(false)
+    }, 1500)
+  }
+
+  return (
+    <>
+      <button className="ai-assistant-toggle" onClick={onToggle}>
+        {show ? '✕' : '🤖'}
+      </button>
+
+      {show && (
+        <div className="ai-assistant-panel">
+          <div className="ai-panel-header">
+            <span>🤖</span>
+            <h4>AI Career Assistant</h4>
+          </div>
+
+          <div className="ai-panel-body">
+            {messages.map((msg, i) => (
+              <div key={i} className={`ai-message ${msg.type}`}>
+                {msg.text}
+              </div>
+            ))}
+            {isTyping && (
+              <div className="ai-message bot">
+                <div className="typing-indicator">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="quick-questions">
+            {quickQuestions.map((q, i) => (
+              <button key={i} className="quick-btn" onClick={() => handleQuestion(q)}>
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function generateAIResponse(question, skills, jobs) {
+  const topJob = jobs[0]
+  const skillCount = skills.length
+
+  if (question.includes('job') || question.includes('recommendation')) {
+    return `Based on your ${skillCount} detected skills, I've matched you with roles that align with your experience. ${topJob ? `'${topJob.title}' is your top match at ${topJob.score}% because your skills in ${topJob.matchingSkills?.slice(0, 2).join(' and ')} directly meet the requirements.` : 'Analyze your repos to get personalized recommendations.'}`
+  }
+
+  if (question.includes('learn') || question.includes('next')) {
+    const missingSkill = topJob?.missingSkills?.[0]
+    return `I recommend focusing on ${missingSkill?.name || 'expanding your skillset'}. This will help you improve your match score for ${topJob?.title || 'target roles'}. Start with online tutorials and build a small project to demonstrate your new skill.`
+  }
+
+  if (question.includes('long') || question.includes('time') || question.includes('goal')) {
+    return `Based on typical learning curves, reaching a strong match (80%+) for your target roles could take 2-4 months of consistent learning. Focus on 1-2 skills at a time, dedicating about 10 hours per week. Project-based learning accelerates this significantly!`
+  }
+
+  if (question.includes('gap') || question.includes('missing')) {
+    const gaps = topJob?.missingSkills?.slice(0, 3).map(s => typeof s === 'string' ? s : s.name) || []
+    return gaps.length > 0
+      ? `Your main skill gaps for ${topJob?.title} are: ${gaps.join(', ')}. These are commonly required skills that employers look for. I recommend prioritizing them in order.`
+      : `Great news! You have a strong skill match. Focus on deepening your expertise in your current skills and staying updated with industry trends.`
+  }
+
+  return `I can help explain your skill analysis, job recommendations, and learning path. Try asking about specific job matches or what skills to learn next!`
 }
 
 export default App

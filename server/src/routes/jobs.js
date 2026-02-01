@@ -22,66 +22,54 @@ const router = express.Router();
  */
 router.get('/recommendations', requireAuth, async (req, res) => {
     try {
-        // Get user from database
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
-        if (!dbUser) {
-            return res.status(404).json({
-                error: 'User not found',
-                message: 'Please sync your data first: POST /skills/sync'
-            });
-        }
-
-        // Get user's skills
-        const userSkills = await dbService.getUserSkills(dbUser.id);
-        if (userSkills.length === 0) {
-            return res.status(400).json({
-                error: 'No skills found',
-                message: 'Please analyze your skills first: POST /skills/analyze'
-            });
-        }
-
         console.log(`💼 Generating job recommendations for ${req.session.user.login}`);
+
+        // Try to get user skills from database first
+        let userSkills = [];
+        try {
+            const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+            if (dbUser) {
+                userSkills = await dbService.getUserSkills(dbUser.id);
+            }
+        } catch (dbError) {
+            console.log('Database lookup skipped:', dbError.message);
+        }
+
+        // If no database skills, use session skills if available
+        if (userSkills.length === 0 && req.session.extractedSkills) {
+            userSkills = req.session.extractedSkills.map(s => ({
+                skills: { name: s.name, category: s.category },
+                proficiency_level: s.level
+            }));
+        }
+
         console.log(`   User has ${userSkills.length} skills`);
 
-        // Get all job roles
-        const jobRoles = await dbService.getJobRoles();
-
-        // Calculate top matches
-        const limit = parseInt(req.query.limit) || 5;
-        const topMatches = jobMatcher.getTopJobMatches(
-            userSkills.map(s => ({
-                name: s.skills?.name,
-                level: s.proficiency_level,
-                category: s.skills?.category
-            })),
-            jobRoles,
-            limit
-        );
-
-        // Generate AI recommendation for top match
-        if (topMatches.length > 0 && topMatches[0].score > 30) {
-            try {
-                topMatches[0].aiRecommendation = await aiService.generateJobRecommendation(
-                    userSkills.map(s => ({
-                        name: s.skills?.name,
-                        level: s.proficiency_level
-                    })),
-                    { title: topMatches[0].jobTitle }
-                );
-            } catch (aiError) {
-                console.log('AI recommendation skipped:', aiError.message);
-            }
+        // Get all job roles (try database first, then use hardcoded)
+        let jobRoles = [];
+        try {
+            jobRoles = await dbService.getJobRoles();
+        } catch (dbError) {
+            console.log('Using hardcoded job roles');
         }
+
+        // If no job roles from database, use hardcoded ones
+        if (jobRoles.length === 0) {
+            jobRoles = getHardcodedJobRoles();
+        }
+
+        // Calculate matches for all jobs
+        const limit = parseInt(req.query.limit) || 10;
+        const skillsForMatching = userSkills.map(s => ({
+            name: s.skills?.name || s.name,
+            level: s.proficiency_level || s.level,
+            category: s.skills?.category || s.category
+        }));
+
+        const topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit);
 
         // Get skill gaps
         const skillGaps = jobMatcher.getSkillGaps(topMatches);
-
-        // Save matches to database
-        try {
-            await dbService.saveJobMatches(dbUser.id, topMatches);
-        } catch (saveError) {
-            console.log('Job match save skipped:', saveError.message);
-        }
 
         console.log(`✅ Found ${topMatches.length} job matches\n`);
 
@@ -119,6 +107,106 @@ router.get('/recommendations', requireAuth, async (req, res) => {
         });
     }
 });
+
+/**
+ * Hardcoded job roles for when database is not available
+ */
+function getHardcodedJobRoles() {
+    return [
+        {
+            id: '1', title: 'Frontend Developer', slug: 'frontend-developer',
+            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 80000, demand_score: 85,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'React', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '2', title: 'Backend Developer', slug: 'backend-developer',
+            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 85000, demand_score: 80,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Node.js', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'REST API', category: 'concept' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '3', title: 'Full Stack Developer', slug: 'fullstack-developer',
+            experience_level: 'mid', salary_range_min: 70000, salary_range_max: 110000, demand_score: 90,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'React', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Node.js', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '4', title: 'React Developer', slug: 'react-developer',
+            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 90000, demand_score: 85,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'React', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Redux', category: 'framework' } }
+            ]
+        },
+        {
+            id: '5', title: 'Node.js Developer', slug: 'nodejs-developer',
+            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 85000, demand_score: 80,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'Node.js', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Express.js', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'MongoDB', category: 'database' } }
+            ]
+        },
+        {
+            id: '6', title: 'DevOps Engineer', slug: 'devops-engineer',
+            experience_level: 'mid', salary_range_min: 80000, salary_range_max: 130000, demand_score: 75,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Kubernetes', category: 'tool' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'AWS', category: 'cloud' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'CI/CD', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Linux', category: 'tool' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Python', category: 'language' } }
+            ]
+        },
+        {
+            id: '7', title: 'Python Developer', slug: 'python-developer',
+            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 90000, demand_score: 80,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Python', category: 'language' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Django', category: 'framework' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Flask', category: 'framework' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'Docker', category: 'tool' } }
+            ]
+        },
+        {
+            id: '8', title: 'Data Scientist', slug: 'data-scientist',
+            experience_level: 'mid', salary_range_min: 90000, salary_range_max: 140000, demand_score: 70,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'Python', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Machine Learning', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
+                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Deep Learning', category: 'concept' } }
+            ]
+        }
+    ];
+}
 
 /**
  * GET /jobs/roles

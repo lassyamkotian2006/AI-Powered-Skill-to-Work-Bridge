@@ -16,9 +16,13 @@ if (!supabaseUrl || !supabaseKey) {
     console.warn('⚠️ Supabase credentials not found - database features disabled');
 }
 
-// Create Supabase client
+// Create Supabase client with explicit schema config
 const supabase = supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey)
+    ? createClient(supabaseUrl, supabaseKey, {
+        db: { schema: 'public' },
+        auth: { persistSession: false }
+    })
     : null;
 
 module.exports = supabase;
+

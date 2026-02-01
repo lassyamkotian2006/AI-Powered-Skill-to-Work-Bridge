@@ -84,7 +84,10 @@ router.post('/analyze', requireAuth, async (req, res) => {
             console.log('⚠️ Database save skipped:', dbError.message);
         }
 
-        // Step 5: Return results
+        // Step 5: Save skills to session for use by jobs/learning routes
+        req.session.extractedSkills = extractedSkills;
+
+        // Step 6: Return results
         console.log(`✅ Analysis complete! Found ${extractedSkills.length} skills\n`);
 
         res.json({

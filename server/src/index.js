@@ -32,7 +32,7 @@ const app = express();
  * Allows cross-origin requests (useful if you have a frontend on a different port)
  */
 app.use(cors({
-    origin: true, // Allow all origins in development
+    origin: 'http://localhost:5173', // Allow frontend origin
     credentials: true // Allow cookies/sessions
 }));
 
@@ -53,6 +53,7 @@ app.use(session({
     cookie: {
         secure: false, // Set to true in production with HTTPS
         httpOnly: true,
+        sameSite: 'lax', // Allow cookies across localhost ports
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
