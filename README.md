@@ -65,15 +65,20 @@ This setup is optimized for **zero-cost** and provides a **single shareable URL*
 3. **Callback URL**: Your Render URL + `/auth/github/callback`.
 
 ### 2️⃣ Deploy to Render (Web Service - Free)
-1. Create a **Web Service** on [Render](https://render.com).
-2. Connect your GitHub repository.
-3. **Root Directory**: *Keep this empty* (root of the repo).
-4. **Build Command**: `npm run render-build`
-5. **Start Command**: `npm start`
-6. **Add Environment Variables**:
-   - `NODE_ENV`: `production`
-   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: From Step 1
-   - `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`: From your `.env`.
+
+There are two ways to deploy. **Option A is recommended** as it automates everything.
+
+#### 🚀 Option A: Automated (Render Blueprint)
+1. Go to **Dashboard** -> **New** -> **Blueprint**.
+2. Connect this repository.
+3. Render will read the `render.yaml` file and automatically configure your build command, start command, and environment variable slots.
+4. Click **Deploy**.
+
+#### 🛠️ Option B: Manual Setup
+1. Create a **Web Service** on [Render](https://render.com) and connect this repo.
+2. **Build Command**: `npm run render-build`
+3. **Start Command**: `npm start`
+4. **Add Environment Variables**: `NODE_ENV=production`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`.
 
 ### 3️⃣ That's it!
 Your app is now live on a single URL. When you visit the link, Render will build your frontend, start your backend, and serve everything from one place.
