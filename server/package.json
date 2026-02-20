@@ -1,0 +1,27 @@
+{
+  "name": "skill-to-work-bridge-server",
+  "version": "1.0.0",
+  "description": "Backend service for AI-Powered Skill-to-Work Bridge with GitHub OAuth",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "github",
+    "oauth",
+    "skills",
+    "jobs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "groq-sdk": "^0.37.0",
+    "octokit": "^3.1.2"
+  }
+}
