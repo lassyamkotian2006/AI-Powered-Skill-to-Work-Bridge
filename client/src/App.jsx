@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
-// API Base URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+// API Base URL - In production, we use a relative path because the frontend is served by the backend
+const API_URL = import.meta.env.MODE === 'production'
+  ? ''
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
 
 function App() {
   const [user, setUser] = useState(null)

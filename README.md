@@ -55,32 +55,28 @@ cd client && npm install && npm run dev
 
 ---
 
-## 🚢 Production Deployment (Free Hosting)
+## 🚢 Deployment (Single Public Link)
 
-Follow these steps for a fully functional hosted application at zero cost.
+This setup is optimized for **zero-cost** and provides a **single shareable URL** (e.g., `https://your-project.onrender.com`).
 
 ### 1️⃣ Create a Production GitHub OAuth App
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers).
-2. **Homepage URL**: Your Vercel URL (e.g., `https://your-app.vercel.app`).
-3. **Callback URL**: Your Render URL + `/auth/github/callback` (e.g., `https://your-api.onrender.com/auth/github/callback`).
+2. **Homepage URL**: Your Render URL (e.g., `https://skill-bridge.onrender.com`).
+3. **Callback URL**: Your Render URL + `/auth/github/callback`.
 
-### 2️⃣ Deploy Backend (Render - Free)
+### 2️⃣ Deploy to Render (Web Service - Free)
 1. Create a **Web Service** on [Render](https://render.com).
-2. Root Directory: `server`.
-3. Build Command: `npm install`.
-4. Start Command: `node src/index.js`.
-5. Add Environment Variables:
+2. Connect your GitHub repository.
+3. **Root Directory**: *Keep this empty* (root of the repo).
+4. **Build Command**: `npm run render-build`
+5. **Start Command**: `npm start`
+6. **Add Environment Variables**:
    - `NODE_ENV`: `production`
-   - `CLIENT_URL`: Your Vercel URL
-   - `CALLBACK_URL`: Your Render Callback URL
    - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: From Step 1
-   - `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`: From your `.env`.
+   - `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`: From your `.env`.
 
-### 3️⃣ Deploy Frontend (Vercel - Free)
-1. Create a new project on [Vercel](https://vercel.com).
-2. Root Directory: `client`.
-3. Add Environment Variable:
-   - `VITE_API_URL`: Your Render URL (e.g., `https://your-api.onrender.com`).
+### 3️⃣ That's it!
+Your app is now live on a single URL. When you visit the link, Render will build your frontend, start your backend, and serve everything from one place.
 
 ---
 

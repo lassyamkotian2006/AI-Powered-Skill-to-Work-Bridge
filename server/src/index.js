@@ -109,6 +109,8 @@ app.get('/', (req, res) => {
     });
 });
 
+const path = require('path');
+
 /**
  * Authentication Routes
  * Handles GitHub OAuth flow
@@ -146,18 +148,28 @@ app.use('/learning', learningRoutes);
 app.use('/resume', resumeRoutes);
 
 // ===========================================
-// Error Handling
+// Serve Frontend (Production)
 // ===========================================
 
+// Serve static files from the React app build folder
+const clientDistPath = path.join(__dirname, '../../client/dist');
+app.use(express.static(clientDistPath));
+
 /**
- * 404 Handler
- * Catches requests to undefined routes
+ * Catch-all Handler
+ * For any request that doesn't match an API route, send back the React index.html.
+ * This enables SPA client-side routing.
  */
-app.use((req, res) => {
-    res.status(404).json({
-        error: 'Not Found',
-        message: `Route ${req.method} ${req.path} does not exist`
-    });
+app.get('*', (req, res) => {
+    // Only serve index.html for GET requests that expect HTML
+    if (req.accepts('html')) {
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+    } else {
+        res.status(404).json({
+            error: 'Not Found',
+            message: `Route ${req.method} ${req.path} does not exist`
+        });
+    }
 });
 
 /**

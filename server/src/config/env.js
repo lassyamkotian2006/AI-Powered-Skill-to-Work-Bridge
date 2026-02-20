@@ -65,7 +65,7 @@ module.exports = {
   // Server port
   port: process.env.PORT || 3000,
 
-  // Frontend URL (for redirects after OAuth)
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+  // Frontend URL (for redirects after OAuth) - defaults to root for co-located deployment
+  clientUrl: process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? '/' : 'http://localhost:5173')
 };
 
