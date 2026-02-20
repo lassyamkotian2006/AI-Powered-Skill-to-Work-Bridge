@@ -24,17 +24,22 @@ const resumeRoutes = require('./routes/resume');
 // Create Express app
 const app = express();
 
-// ===========================================
-// Middleware Setup
-// ===========================================
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Trust proxy for Render/Vercel (needed for secure cookies behind a proxy)
+if (isProduction) {
+    app.set('trust proxy', 1);
+}
 
 /**
  * CORS Configuration
  * Allows cross-origin requests from the frontend
  */
 app.use(cors({
-    origin: config.clientUrl, // Read from .env instead of hardcoding
-    credentials: true // Allow cookies/sessions
+    origin: config.clientUrl,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 /**
@@ -51,10 +56,11 @@ app.use(session({
     secret: config.session.secret,
     resave: false,
     saveUninitialized: false,
+    proxy: isProduction, // Trust the platform's proxy
     cookie: {
-        secure: false, // Set to true in production with HTTPS
+        secure: isProduction, // HTTPS required for sameSite: 'none'
         httpOnly: true,
-        sameSite: 'lax', // Allow cookies across localhost ports
+        sameSite: isProduction ? 'none' : 'lax', // Needed for cross-domain cookies
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));

@@ -5,7 +5,7 @@ An AI-driven platform that analyzes your GitHub repositories to understand your 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
 ![React](https://img.shields.io/badge/React-18+-blue?logo=react)
 ![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?logo=supabase)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![License](https://img.shields.io/badge/License-UNLICENSED-red)
 
 ## ✨ Features
 
@@ -14,7 +14,8 @@ An AI-driven platform that analyzes your GitHub repositories to understand your 
 - **🎯 Skill Extraction** - AI-powered identification of your technical skills
 - **💼 Job Matching** - Get matched to suitable job roles based on your skills
 - **📈 Gap Analysis** - Identify missing skills for your dream role
-- **📚 Learning Paths** - Personalized recommendations to upskill
+- [x] **📚 Learning Paths** - Personalized recommendations to upskill
+- [x] **📄 Resume Generation** - AI-powered student-focused resume generator
 
 ## 🏗️ Tech Stack
 
@@ -28,15 +29,7 @@ An AI-driven platform that analyzes your GitHub repositories to understand your 
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v18 or higher
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
-- [GitHub Account](https://github.com/)
-- [Supabase Account](https://supabase.com/) (free tier works)
-- [Groq API Key](https://console.groq.com/) (free tier available)
+## 🚀 Quick Start (Local Development)
 
 ### 1️⃣ Clone the Repository
 
@@ -45,220 +38,55 @@ git clone https://github.com/YOUR_USERNAME/AI-Powered-Skill-to-Work-Bridge.git
 cd AI-Powered-Skill-to-Work-Bridge
 ```
 
-### 2️⃣ Set Up Supabase Database
+### 2️⃣ Configure Environment Variables
 
-1. Create a new project at [supabase.com](https://supabase.com/dashboard)
-2. Go to **SQL Editor** → **New Query**
-3. Copy contents of `database/schema.sql` and run it
-4. Note your **Project URL** and **API Keys** from Settings → API
+1. **Server**: `cd server && cp .env.example .env` → Fill in your API keys (Supabase, Groq, GitHub).
+2. **Client**: `cd client && cp .env.example .env` (Optional: defaults to `http://localhost:3000`).
 
-### 3️⃣ Create GitHub OAuth App
-
-1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Click **New OAuth App**
-3. Fill in:
-   - **Application name**: `Skill-to-Work Bridge`
-   - **Homepage URL**: `http://localhost:5173`
-   - **Authorization callback URL**: `http://localhost:3000/auth/github/callback`
-4. Click **Register application**
-5. Copy your **Client ID** and generate a **Client Secret**
-
-### 4️⃣ Configure Environment Variables
+### 3️⃣ Run
 
 ```bash
-# Server configuration
-cd server
-cp .env.example .env
-```
+# Terminal 1: Backend
+cd server && npm install && npm run dev
 
-Edit `server/.env`:
-
-```env
-# GitHub OAuth
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-
-# Session
-SESSION_SECRET=any_random_string_at_least_32_chars
-
-# Server
-PORT=3000
-CALLBACK_URL=http://localhost:3000/auth/github/callback
-
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_KEY=your-service-role-key
-
-# AI (Groq)
-GROQ_API_KEY=your-groq-api-key
-```
-
-### 5️⃣ Install Dependencies
-
-```bash
-# Install server dependencies
-cd server
-npm install
-
-# Install client dependencies
-cd ../client
-npm install
-```
-
-### 6️⃣ Run the Application
-
-**Terminal 1 - Backend:**
-```bash
-cd server
-npm run dev
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd client
-npm run dev
-```
-
-### 7️⃣ Open in Browser
-
-- **Frontend**: [http://localhost:5173](http://localhost:5173)
-- **Backend API**: [http://localhost:3000](http://localhost:3000)
-
----
-
-## 📡 API Documentation
-
-### Authentication
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/github` | GET | Initiate GitHub OAuth login |
-| `/auth/github/callback` | GET | OAuth callback handler |
-| `/auth/user` | GET | Get current logged-in user |
-| `/auth/logout` | GET | Logout and clear session |
-
-### Repositories
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/repos` | GET | List user's GitHub repositories |
-| `/repos/:owner/:repo/details` | GET | Get detailed repo info |
-
-### Skills
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/skills/analyze` | POST | Analyze repos and extract skills |
-| `/skills` | GET | Get user's extracted skills |
-| `/skills/sync` | POST | Sync skills to database |
-| `/skills/summary` | GET | Get skill summary by category |
-
-### Jobs
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/jobs/recommendations` | GET | Get job recommendations |
-| `/jobs/roles` | GET | List all available job roles |
-| `/jobs/career/path` | GET | Get career path suggestions |
-
-### Learning
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/learning/path` | GET | Get personalized learning path |
-| `/learning/resources/:skill` | GET | Get resources for a skill |
-| `/learning/roadmap` | GET | Get complete learning roadmap |
-
----
-
-## 📁 Project Structure
-
-```
-AI-Powered-Skill-to-Work-Bridge/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── App.jsx        # Main application
-│   │   ├── App.css        # Component styles
-│   │   └── index.css      # Global styles
-│   └── package.json
-├── server/                 # Node.js backend
-│   ├── src/
-│   │   ├── config/        # Configuration files
-│   │   ├── middleware/    # Auth middleware
-│   │   ├── routes/        # API routes
-│   │   │   ├── auth.js    # OAuth routes
-│   │   │   ├── repos.js   # Repository routes
-│   │   │   ├── skills.js  # Skills routes
-│   │   │   ├── jobs.js    # Jobs routes
-│   │   │   └── learning.js# Learning routes
-│   │   ├── services/      # Business logic
-│   │   │   ├── ai.js      # AI/Groq integration
-│   │   │   ├── github.js  # GitHub API
-│   │   │   ├── jobMatcher.js
-│   │   │   └── supabaseService.js
-│   │   └── index.js       # Server entry point
-│   ├── .env.example
-│   └── package.json
-├── database/
-│   └── schema.sql         # Database schema + seed data
-└── README.md
+# Terminal 2: Frontend
+cd client && npm install && npm run dev
 ```
 
 ---
 
-## 🚢 Deployment
+## 🚢 Production Deployment (Free Hosting)
 
-### Deploy Backend (Railway/Render)
+Follow these steps for a fully functional hosted application at zero cost.
 
-1. Push code to GitHub
-2. Connect repo to [Railway](https://railway.app) or [Render](https://render.com)
-3. Set environment variables in dashboard
-4. Deploy!
+### 1️⃣ Create a Production GitHub OAuth App
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers).
+2. **Homepage URL**: Your Vercel URL (e.g., `https://your-app.vercel.app`).
+3. **Callback URL**: Your Render URL + `/auth/github/callback` (e.g., `https://your-api.onrender.com/auth/github/callback`).
 
-**Environment variables for production:**
-```env
-NODE_ENV=production
-PORT=3000
-GITHUB_CLIENT_ID=xxx
-GITHUB_CLIENT_SECRET=xxx
-CALLBACK_URL=https://your-backend.railway.app/auth/github/callback
-SUPABASE_URL=xxx
-SUPABASE_ANON_KEY=xxx
-SUPABASE_SERVICE_KEY=xxx
-GROQ_API_KEY=xxx
-SESSION_SECRET=xxx
-```
+### 2️⃣ Deploy Backend (Render - Free)
+1. Create a **Web Service** on [Render](https://render.com).
+2. Root Directory: `server`.
+3. Build Command: `npm install`.
+4. Start Command: `node src/index.js`.
+5. Add Environment Variables:
+   - `NODE_ENV`: `production`
+   - `CLIENT_URL`: Your Vercel URL
+   - `CALLBACK_URL`: Your Render Callback URL
+   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: From Step 1
+   - `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`: From your `.env`.
 
-### Deploy Frontend (Vercel)
-
-1. Connect repo to [Vercel](https://vercel.com)
-2. Set root directory to `client`
-3. Update `API_URL` in `App.jsx` to your backend URL
-4. Deploy!
-
----
-
-## 🔧 Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| OAuth redirect error | Verify callback URL matches exactly in GitHub settings |
-| Database connection fails | Check Supabase URL and keys in `.env` |
-| AI analysis fails | Verify Groq API key is valid |
-| CORS errors | Ensure backend CORS allows frontend origin |
+### 3️⃣ Deploy Frontend (Vercel - Free)
+1. Create a new project on [Vercel](https://vercel.com).
+2. Root Directory: `client`.
+3. Add Environment Variable:
+   - `VITE_API_URL`: Your Render URL (e.g., `https://your-api.onrender.com`).
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+This project is **UNLICENSED**.
 
 ---
 
