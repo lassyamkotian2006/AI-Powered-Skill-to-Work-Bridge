@@ -98,7 +98,7 @@ router.get('/github/callback', async (req, res) => {
         console.log(`✅ User ${user.login} logged in successfully!`);
 
         // Redirect back to frontend application after successful login
-        res.redirect('http://localhost:5173');
+        res.redirect(config.clientUrl);
 
     } catch (err) {
         console.error('❌ OAuth callback error:', err);

@@ -19,6 +19,7 @@ const repoRoutes = require('./routes/repos');
 const skillsRoutes = require('./routes/skills');
 const jobsRoutes = require('./routes/jobs');
 const learningRoutes = require('./routes/learning');
+const resumeRoutes = require('./routes/resume');
 
 // Create Express app
 const app = express();
@@ -29,10 +30,10 @@ const app = express();
 
 /**
  * CORS Configuration
- * Allows cross-origin requests (useful if you have a frontend on a different port)
+ * Allows cross-origin requests from the frontend
  */
 app.use(cors({
-    origin: 'http://localhost:5173', // Allow frontend origin
+    origin: config.clientUrl, // Read from .env instead of hardcoding
     credentials: true // Allow cookies/sessions
 }));
 
@@ -131,6 +132,12 @@ app.use('/jobs', jobsRoutes);
  * Generates personalized learning paths
  */
 app.use('/learning', learningRoutes);
+
+/**
+ * Resume Routes
+ * Generates AI-powered professional resumes
+ */
+app.use('/resume', resumeRoutes);
 
 // ===========================================
 // Error Handling

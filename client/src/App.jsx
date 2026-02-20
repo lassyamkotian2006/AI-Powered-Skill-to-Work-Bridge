@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 
 // API Base URL
-const API_URL = 'http://localhost:3000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -13,6 +13,9 @@ function App() {
   const [learningPath, setLearningPath] = useState([])
   const [analyzing, setAnalyzing] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
+  const [resumeData, setResumeData] = useState(null)
+  const [generatingResume, setGeneratingResume] = useState(false)
+  const [showResumePage, setShowResumePage] = useState(false)
 
   // Check if user is logged in
   useEffect(() => {
@@ -97,10 +100,20 @@ function App() {
     return <LoginPage onLogin={login} />
   }
 
+  // Full-page resume view
+  if (showResumePage && resumeData) {
+    return (
+      <ResumeFullPage
+        resume={resumeData}
+        onBack={() => setShowResumePage(false)}
+      />
+    )
+  }
+
   return (
     <div className="app-container">
       <Header user={user} onLogout={logout} />
-      <NavTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      <NavTabs activeTab={activeTab} setActiveTab={setActiveTab} isAnalyzed={skills.length > 0} />
 
       <div className="tab-content">
         {activeTab === 'skills' && (
@@ -117,6 +130,17 @@ function App() {
 
         {activeTab === 'learning' && (
           <LearningTab learningPath={learningPath} />
+        )}
+
+        {activeTab === 'resume' && (
+          <ResumeTab
+            skills={skills}
+            user={user}
+            setResumeData={setResumeData}
+            generating={generatingResume}
+            setGenerating={setGeneratingResume}
+            setShowResumePage={setShowResumePage}
+          />
         )}
       </div>
 
@@ -136,6 +160,8 @@ function App() {
 // =============================================
 
 function LoginPage({ onLogin }) {
+  const [isSignup, setIsSignup] = useState(false)
+
   return (
     <div className="login-body">
       <div className="indigo-glow"></div>
@@ -147,40 +173,50 @@ function LoginPage({ onLogin }) {
           <div className="login-icon-box">
             <span className="material-symbols-outlined" style={{ fontSize: '36px', color: 'white' }}>auto_awesome</span>
           </div>
-          <h2 className="login-title">Skill-to-Work</h2>
-          <p className="login-subtitle">AI-powered career intelligence</p>
+          <h2 className="login-title">{isSignup ? 'Create Account' : 'Skill-to-Work'}</h2>
+          <p className="login-subtitle">{isSignup ? 'Sign up to build your career bridge' : 'AI-powered career intelligence'}</p>
         </div>
 
         <div className="login-content">
-          <form onSubmit={(e) => e.preventDefault()}>
+          <form onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
             <div className="form-group">
               <label className="form-label">Email Address</label>
               <div className="input-wrapper">
                 <span className="material-symbols-outlined input-icon">mail</span>
-                <input className="form-input" placeholder="name@university.edu" type="email" readOnly />
+                <input className="form-input" placeholder="name@university.edu" type="email" />
               </div>
             </div>
 
             <div className="form-group">
               <div className="form-actions">
                 <label className="form-label">Password</label>
-                <a className="forgot-link" href="#">Forgot?</a>
+                {!isSignup && <a className="forgot-link" href="#">Forgot?</a>}
               </div>
               <div className="input-wrapper">
                 <span className="material-symbols-outlined input-icon">lock</span>
-                <input className="form-input" placeholder="••••••••" type="password" readOnly />
+                <input className="form-input" placeholder="••••••••" type="password" />
               </div>
             </div>
 
-            <button className="btn-signin" type="button">
-              Sign In
+            {isSignup && (
+              <div className="form-group">
+                <label className="form-label">Confirm Password</label>
+                <div className="input-wrapper">
+                  <span className="material-symbols-outlined input-icon">shield</span>
+                  <input className="form-input" placeholder="••••••••" type="password" />
+                </div>
+              </div>
+            )}
+
+            <button className="btn-signin" type="button" onClick={onLogin}>
+              {isSignup ? 'Sign Up' : 'Sign In'}
               <span className="material-symbols-outlined">arrow_forward</span>
             </button>
           </form>
 
           <div className="divider">
             <div className="divider-line"></div>
-            <span className="divider-text">Skill Mapping</span>
+            <span className="divider-text">Or Continue with</span>
             <div className="divider-line"></div>
           </div>
 
@@ -192,22 +228,28 @@ function LoginPage({ onLogin }) {
               Connect with GitHub
             </button>
             <p className="helper-text">
-              Automatically map technical projects using our specialized AI extraction.
+              Secure authentication via GitHub for technical project mapping.
             </p>
           </div>
         </div>
 
         <div className="login-footer">
           <p className="footer-text">
-            Don't have an account?
-            <a className="footer-link" href="#">Create Account</a>
+            {isSignup ? 'Already have an account?' : "Don't have an account?"}
+            <button
+              className="footer-link-btn"
+              onClick={() => setIsSignup(!isSignup)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: '0.25rem' }}
+            >
+              {isSignup ? 'Sign In' : 'Create Account'}
+            </button>
           </p>
         </div>
       </div>
 
       <div className="security-badge">
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>verified_user</span>
-        <span className="security-text">Secure AES-256 Authentication</span>
+        <span className="security-text">Secure OAuth 2.0 Authentication</span>
       </div>
     </div>
   )
@@ -221,8 +263,10 @@ function Header({ user, onLogout }) {
   return (
     <header className="header">
       <div className="logo">
-        <span className="logo-icon">🌉</span>
-        <span className="logo-text">Skill-to-Work Bridge</span>
+        <div className="logo-icon">
+          <span className="material-symbols-outlined" style={{ color: 'white', fontSize: '22px' }}>auto_awesome</span>
+        </div>
+        <span className="logo-text">SkillBridge</span>
       </div>
       <div className="user-info">
         <span>{user.name || user.login}</span>
@@ -237,11 +281,12 @@ function Header({ user, onLogout }) {
 // NAVIGATION
 // =============================================
 
-function NavTabs({ activeTab, setActiveTab }) {
+function NavTabs({ activeTab, setActiveTab, isAnalyzed }) {
   const tabs = [
-    { id: 'skills', label: '🎯 Skills', icon: '🎯' },
-    { id: 'jobs', label: '💼 Jobs', icon: '💼' },
-    { id: 'learning', label: '📚 Learning', icon: '📚' },
+    { id: 'skills', label: 'Skills', icon: 'psychology' },
+    { id: 'jobs', label: 'Jobs', icon: 'work_outline', locked: !isAnalyzed },
+    { id: 'learning', label: 'Learning', icon: 'school', locked: !isAnalyzed },
+    { id: 'resume', label: 'Resume', icon: 'description', locked: !isAnalyzed },
   ]
 
   return (
@@ -249,9 +294,13 @@ function NavTabs({ activeTab, setActiveTab }) {
       {tabs.map(tab => (
         <button
           key={tab.id}
-          className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
-          onClick={() => setActiveTab(tab.id)}
+          className={`nav-tab ${activeTab === tab.id ? 'active' : ''} ${tab.locked ? 'locked' : ''}`}
+          onClick={() => !tab.locked && setActiveTab(tab.id)}
+          title={tab.locked ? 'Analyze your repository first to unlock this feature' : ''}
         >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+            {tab.locked ? 'lock' : tab.icon}
+          </span>
           {tab.label}
         </button>
       ))}
@@ -306,14 +355,14 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
               Analyzing...
             </>
           ) : (
-            <>🔍 Analyze Repos</>
+            <>🔎 Analyze Repos</>
           )}
         </button>
       </div>
 
       {skills.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-icon">🔍</div>
+          <div className="empty-icon">🔎</div>
           <h3>No skills analyzed yet</h3>
           <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
         </div>
@@ -534,7 +583,7 @@ function EnhancedJobCard({ job, rank, onPreview }) {
         style={{ width: '100%' }}
         onClick={onPreview}
       >
-        👁️ Preview This Role
+        👀 Preview This Role
       </button>
     </div>
   )
@@ -715,6 +764,478 @@ function EnhancedLearningStep({ step, index }) {
     </div>
   )
 }
+
+// =============================================
+// RESUME TAB (Student-focused)
+// =============================================
+
+function ResumeTab({ skills, user, setResumeData, generating, setGenerating, setShowResumePage }) {
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: '',
+    phone: '',
+    linkedin: '',
+    portfolio: '',
+    education: [{ institution: '', degree: '', startYear: '', endYear: '', gpa: '', coursework: '' }],
+    internships: [{ company: '', role: '', startDate: '', endDate: '', description: '' }],
+    projects: [{ name: '', description: '', technologies: '' }],
+    cocurricular: [{ activity: '', role: '', description: '' }],
+    certifications: ['']
+  })
+
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const updateArrayField = (section, index, field, value) => {
+    setFormData(prev => {
+      const arr = [...prev[section]]
+      arr[index] = typeof arr[index] === 'string' ? value : { ...arr[index], [field]: value }
+      return { ...prev, [section]: arr }
+    })
+  }
+
+  const addEntry = (section) => {
+    const templates = {
+      education: { institution: '', degree: '', startYear: '', endYear: '', gpa: '', coursework: '' },
+      internships: { company: '', role: '', startDate: '', endDate: '', description: '' },
+      projects: { name: '', description: '', technologies: '' },
+      cocurricular: { activity: '', role: '', description: '' },
+      certifications: ''
+    }
+    setFormData(prev => ({ ...prev, [section]: [...prev[section], templates[section]] }))
+  }
+
+  const removeEntry = (section, index) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: prev[section].filter((_, i) => i !== index)
+    }))
+  }
+
+  const generateResume = async () => {
+    setGenerating(true)
+    try {
+      const res = await fetch(`${API_URL}/resume/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          personalInfo: {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            linkedin: formData.linkedin,
+            portfolio: formData.portfolio
+          },
+          education: formData.education.filter(e => e.institution || e.degree),
+          internships: formData.internships.filter(e => e.company || e.role),
+          projects: formData.projects.filter(p => p.name || p.description),
+          cocurricular: formData.cocurricular.filter(a => a.activity || a.role),
+          certifications: formData.certifications.filter(c => c.trim()),
+          skills: skills.map(s => ({ name: s.name, category: s.category, level: s.level }))
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setResumeData(data.resume)
+        setShowResumePage(true)
+      }
+    } catch (err) {
+      console.error('Resume generation error:', err)
+    }
+    setGenerating(false)
+  }
+
+  return (
+    <div className="resume-tab">
+      <div className="section-header mb-3">
+        <h2>📄 Resume Generator</h2>
+        <p className="text-muted">Fill in your details • Skills auto-populated from GitHub • AI polishes your resume</p>
+      </div>
+
+      {/* Personal Info */}
+      <div className="card resume-section mb-2">
+        <h3 className="mb-2">👤 Personal Information</h3>
+        <div className="resume-form-grid">
+          <div className="resume-field">
+            <label>Full Name *</label>
+            <input value={formData.name} onChange={e => updateField('name', e.target.value)} placeholder="Your full name" />
+          </div>
+          <div className="resume-field">
+            <label>Email *</label>
+            <input value={formData.email} onChange={e => updateField('email', e.target.value)} placeholder="you@email.com" type="email" />
+          </div>
+          <div className="resume-field">
+            <label>Phone</label>
+            <input value={formData.phone} onChange={e => updateField('phone', e.target.value)} placeholder="+91 98765 43210" />
+          </div>
+          <div className="resume-field">
+            <label>LinkedIn</label>
+            <input value={formData.linkedin} onChange={e => updateField('linkedin', e.target.value)} placeholder="linkedin.com/in/yourname" />
+          </div>
+          <div className="resume-field">
+            <label>Portfolio Website</label>
+            <input value={formData.portfolio} onChange={e => updateField('portfolio', e.target.value)} placeholder="yoursite.dev" />
+          </div>
+        </div>
+      </div>
+
+      {/* Education */}
+      <div className="card resume-section mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <h3>🎓 Education</h3>
+          <button className="btn-add" onClick={() => addEntry('education')}>+ Add</button>
+        </div>
+        {formData.education.map((edu, i) => (
+          <div key={i} className="resume-entry">
+            {formData.education.length > 1 && (
+              <button className="btn-remove" onClick={() => removeEntry('education', i)}>✕</button>
+            )}
+            <div className="resume-form-grid">
+              <div className="resume-field">
+                <label>Institution</label>
+                <input value={edu.institution} onChange={e => updateArrayField('education', i, 'institution', e.target.value)} placeholder="University / College" />
+              </div>
+              <div className="resume-field">
+                <label>Degree</label>
+                <input value={edu.degree} onChange={e => updateArrayField('education', i, 'degree', e.target.value)} placeholder="B.Tech Computer Science" />
+              </div>
+              <div className="resume-field">
+                <label>Start Year</label>
+                <input value={edu.startYear} onChange={e => updateArrayField('education', i, 'startYear', e.target.value)} placeholder="2021" />
+              </div>
+              <div className="resume-field">
+                <label>End Year</label>
+                <input value={edu.endYear} onChange={e => updateArrayField('education', i, 'endYear', e.target.value)} placeholder="2025" />
+              </div>
+              <div className="resume-field">
+                <label>GPA / Percentage</label>
+                <input value={edu.gpa} onChange={e => updateArrayField('education', i, 'gpa', e.target.value)} placeholder="8.5 / 10" />
+              </div>
+              <div className="resume-field">
+                <label>Relevant Coursework</label>
+                <input value={edu.coursework} onChange={e => updateArrayField('education', i, 'coursework', e.target.value)} placeholder="Data Structures, OS, DBMS..." />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Internships */}
+      <div className="card resume-section mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <h3>💼 Internships</h3>
+          <button className="btn-add" onClick={() => addEntry('internships')}>+ Add</button>
+        </div>
+        {formData.internships.map((int, i) => (
+          <div key={i} className="resume-entry">
+            {formData.internships.length > 1 && (
+              <button className="btn-remove" onClick={() => removeEntry('internships', i)}>✕</button>
+            )}
+            <div className="resume-form-grid">
+              <div className="resume-field">
+                <label>Company / Organization</label>
+                <input value={int.company} onChange={e => updateArrayField('internships', i, 'company', e.target.value)} placeholder="Company Name" />
+              </div>
+              <div className="resume-field">
+                <label>Role</label>
+                <input value={int.role} onChange={e => updateArrayField('internships', i, 'role', e.target.value)} placeholder="Web Development Intern" />
+              </div>
+              <div className="resume-field">
+                <label>Start Date</label>
+                <input value={int.startDate} onChange={e => updateArrayField('internships', i, 'startDate', e.target.value)} placeholder="May 2024" />
+              </div>
+              <div className="resume-field">
+                <label>End Date</label>
+                <input value={int.endDate} onChange={e => updateArrayField('internships', i, 'endDate', e.target.value)} placeholder="Jul 2024" />
+              </div>
+            </div>
+            <div className="resume-field mt-1">
+              <label>Description</label>
+              <textarea value={int.description} onChange={e => updateArrayField('internships', i, 'description', e.target.value)} placeholder="What did you work on? What was the impact?" rows={3} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Projects */}
+      <div className="card resume-section mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <h3>🚀 Projects</h3>
+          <button className="btn-add" onClick={() => addEntry('projects')}>+ Add</button>
+        </div>
+        {formData.projects.map((proj, i) => (
+          <div key={i} className="resume-entry">
+            {formData.projects.length > 1 && (
+              <button className="btn-remove" onClick={() => removeEntry('projects', i)}>✕</button>
+            )}
+            <div className="resume-form-grid">
+              <div className="resume-field">
+                <label>Project Name</label>
+                <input value={proj.name} onChange={e => updateArrayField('projects', i, 'name', e.target.value)} placeholder="My Awesome Project" />
+              </div>
+              <div className="resume-field">
+                <label>Technologies</label>
+                <input value={proj.technologies} onChange={e => updateArrayField('projects', i, 'technologies', e.target.value)} placeholder="React, Node.js, MongoDB" />
+              </div>
+            </div>
+            <div className="resume-field mt-1">
+              <label>Description</label>
+              <textarea value={proj.description} onChange={e => updateArrayField('projects', i, 'description', e.target.value)} placeholder="Describe the project and your contributions..." rows={2} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Co-curricular Activities */}
+      <div className="card resume-section mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <h3>🏆 Co-curricular Activities</h3>
+          <button className="btn-add" onClick={() => addEntry('cocurricular')}>+ Add</button>
+        </div>
+        {formData.cocurricular.map((act, i) => (
+          <div key={i} className="resume-entry">
+            {formData.cocurricular.length > 1 && (
+              <button className="btn-remove" onClick={() => removeEntry('cocurricular', i)}>✕</button>
+            )}
+            <div className="resume-form-grid">
+              <div className="resume-field">
+                <label>Activity / Organization</label>
+                <input value={act.activity} onChange={e => updateArrayField('cocurricular', i, 'activity', e.target.value)} placeholder="Coding Club, Hackathon, NSS..." />
+              </div>
+              <div className="resume-field">
+                <label>Your Role</label>
+                <input value={act.role} onChange={e => updateArrayField('cocurricular', i, 'role', e.target.value)} placeholder="President, Volunteer, Participant" />
+              </div>
+            </div>
+            <div className="resume-field mt-1">
+              <label>Description</label>
+              <textarea value={act.description} onChange={e => updateArrayField('cocurricular', i, 'description', e.target.value)} placeholder="What did you do? Any achievements?" rows={2} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Certifications */}
+      <div className="card resume-section mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <h3>📜 Certifications</h3>
+          <button className="btn-add" onClick={() => addEntry('certifications')}>+ Add</button>
+        </div>
+        {formData.certifications.map((cert, i) => (
+          <div key={i} className="resume-entry resume-entry-inline">
+            {formData.certifications.length > 1 && (
+              <button className="btn-remove" onClick={() => removeEntry('certifications', i)}>✕</button>
+            )}
+            <div className="resume-field" style={{ flex: 1 }}>
+              <label>Certification</label>
+              <input value={cert} onChange={e => updateArrayField('certifications', i, null, e.target.value)} placeholder="AWS Cloud Practitioner, Google Analytics..." />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Skills (auto-populated) */}
+      <div className="card resume-section mb-2">
+        <h3 className="mb-2">🛠️ Technical Skills {skills.length > 0 && <span className="badge badge-success">Auto-detected from GitHub</span>}</h3>
+        {skills.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {skills.map((skill, i) => (
+              <span key={i} className="skill-pill matched">{skill.name}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted">Go to the Skills tab and click "Analyze Repos" first to auto-populate your skills.</p>
+        )}
+      </div>
+
+      {/* Generate Button */}
+      <button
+        className={`btn btn-primary generate-resume-btn ${generating ? 'ai-shimmer' : ''}`}
+        onClick={generateResume}
+        disabled={generating || !formData.name}
+      >
+        {generating ? (
+          <>
+            <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }}></div>
+            AI is generating your resume...
+          </>
+        ) : (
+          <>✨ Generate Resume</>
+        )}
+      </button>
+    </div>
+  )
+}
+
+// =============================================
+// FULL-PAGE RESUME VIEW
+// =============================================
+
+function ResumeFullPage({ resume, onBack }) {
+  const handleDownload = () => {
+    window.print()
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="resume-full-page">
+      <div className="resume-full-page-toolbar no-print">
+        <button className="btn btn-secondary" onClick={onBack}>
+          ✏️ Edit
+        </button>
+        <h3>Your Resume</h3>
+        <div className="flex gap-1">
+          <button className="btn btn-primary" onClick={handleDownload}>
+            📥 Download PDF
+          </button>
+          <button className="btn btn-secondary" onClick={handlePrint}>
+            🖨️ Print
+          </button>
+        </div>
+      </div>
+      <div className="resume-full-page-body">
+        <div className="resume-preview" id="resume-print">
+          {/* Header */}
+          <div className="resume-header">
+            <h1 className="resume-name">{resume.personalInfo?.name}</h1>
+            <div className="resume-contact">
+              {resume.personalInfo?.email && <span>{resume.personalInfo.email}</span>}
+              {resume.personalInfo?.phone && <span>{resume.personalInfo.phone}</span>}
+              {resume.personalInfo?.linkedin && <span>{resume.personalInfo.linkedin}</span>}
+              {resume.personalInfo?.github && <span>{resume.personalInfo.github}</span>}
+              {resume.personalInfo?.portfolio && <span>{resume.personalInfo.portfolio}</span>}
+            </div>
+          </div>
+
+          {/* Objective / Summary */}
+          {resume.summary && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Objective</h2>
+              <p className="resume-summary-text">{resume.summary}</p>
+            </div>
+          )}
+
+          {/* Education */}
+          {resume.education && resume.education.length > 0 && resume.education[0].institution && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Education</h2>
+              {resume.education.map((edu, i) => (
+                <div key={i} className="resume-item">
+                  <div className="resume-item-header">
+                    <div>
+                      <strong>{edu.degree}</strong>
+                      <span className="resume-item-org"> — {edu.institution}</span>
+                    </div>
+                    <span className="resume-item-date">{edu.duration}</span>
+                  </div>
+                  {edu.details && <p className="resume-item-detail">{edu.details}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Technical Skills */}
+          {resume.skillCategories && resume.skillCategories.length > 0 && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Technical Skills</h2>
+              <div className="resume-skills-grid">
+                {resume.skillCategories.map((cat, i) => (
+                  <div key={i} className="resume-skill-row">
+                    <strong className="resume-skill-cat">{cat.category}:</strong>
+                    <span>{cat.skills.join(', ')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Internships */}
+          {resume.internships && resume.internships.length > 0 && resume.internships[0].company && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Internships</h2>
+              {resume.internships.map((int, i) => (
+                <div key={i} className="resume-item">
+                  <div className="resume-item-header">
+                    <div>
+                      <strong>{int.role}</strong>
+                      <span className="resume-item-org"> — {int.company}</span>
+                    </div>
+                    <span className="resume-item-date">{int.duration}</span>
+                  </div>
+                  {int.bullets && (
+                    <ul className="resume-bullets">
+                      {int.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Projects */}
+          {resume.projects && resume.projects.length > 0 && resume.projects[0].name && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Projects</h2>
+              {resume.projects.map((proj, i) => (
+                <div key={i} className="resume-item">
+                  <div className="resume-item-header">
+                    <strong>{proj.name}</strong>
+                    {proj.technologies && <span className="resume-item-date">{proj.technologies}</span>}
+                  </div>
+                  {proj.bullets && (
+                    <ul className="resume-bullets">
+                      {proj.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Co-curricular */}
+          {resume.cocurricular && resume.cocurricular.length > 0 && resume.cocurricular[0].activity && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Co-curricular Activities</h2>
+              {resume.cocurricular.map((act, i) => (
+                <div key={i} className="resume-item">
+                  <div className="resume-item-header">
+                    <div>
+                      <strong>{act.activity}</strong>
+                      {act.role && <span className="resume-item-org"> — {act.role}</span>}
+                    </div>
+                  </div>
+                  {act.bullets && (
+                    <ul className="resume-bullets">
+                      {act.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Certifications */}
+          {resume.certifications && resume.certifications.length > 0 && (
+            <div className="resume-section-block">
+              <h2 className="resume-section-title">Certifications</h2>
+              <ul className="resume-bullets">
+                {resume.certifications.map((cert, i) => (
+                  <li key={i}>{cert}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 // =============================================
 // AI ASSISTANT WIDGET
