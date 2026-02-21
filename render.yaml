@@ -24,5 +24,7 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: CALLBACK_URL
+        sync: false
       - key: CLIENT_URL
         value: /
