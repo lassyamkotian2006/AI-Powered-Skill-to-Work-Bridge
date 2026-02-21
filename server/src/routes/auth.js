@@ -20,10 +20,15 @@ const router = express.Router();
  * This starts the OAuth flow
  */
 router.get('/github', (req, res) => {
+    // Dynamically determine the callback URL from the request
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const callbackUrl = config.github.callbackUrl || `${protocol}://${host}/auth/github/callback`;
+
     // Build the GitHub authorization URL with required parameters
     const params = new URLSearchParams({
         client_id: config.github.clientId,
-        redirect_uri: config.github.callbackUrl,
+        redirect_uri: callbackUrl,
         scope: config.github.scopes.join(' '), // 'read:user repo'
         state: generateState() // Random state for CSRF protection
     });
@@ -58,6 +63,11 @@ router.get('/github/callback', async (req, res) => {
     }
 
     try {
+        // Dynamically determine the callback URL from the request
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.get('host');
+        const callbackUrl = config.github.callbackUrl || `${protocol}://${host}/auth/github/callback`;
+
         // Exchange the authorization code for an access token
         const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
             method: 'POST',
@@ -69,7 +79,7 @@ router.get('/github/callback', async (req, res) => {
                 client_id: config.github.clientId,
                 client_secret: config.github.clientSecret,
                 code: code,
-                redirect_uri: config.github.callbackUrl
+                redirect_uri: callbackUrl
             })
         });
 

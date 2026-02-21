@@ -136,6 +136,16 @@ router.get('/', requireAuth, async (req, res) => {
 
         const skills = await dbService.getUserSkills(dbUser.id);
 
+        // If DB is empty, check session cache to prevent UI disappearance after fresh analysis
+        if (skills.length === 0 && req.session.extractedSkills) {
+            console.log('🔄 Serving skills from session cache (DB pending/empty)');
+            return res.json({
+                success: true,
+                count: req.session.extractedSkills.length,
+                skills: req.session.extractedSkills
+            });
+        }
+
         res.json({
             success: true,
             count: skills.length,

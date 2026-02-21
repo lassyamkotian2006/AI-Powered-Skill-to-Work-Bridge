@@ -44,7 +44,7 @@ module.exports = {
     callbackUrl: process.env.CALLBACK_URL ||
       (process.env.RENDER_EXTERNAL_URL
         ? `${process.env.RENDER_EXTERNAL_URL}/auth/github/callback`
-        : 'http://localhost:3000/auth/github/callback'),
+        : (process.env.NODE_ENV === 'production' ? null : 'http://localhost:3000/auth/github/callback')),
     // Scopes we request from GitHub:
     // - read:user: Access user profile information
     // - repo: Full access to repositories (needed for README, file tree, commits)

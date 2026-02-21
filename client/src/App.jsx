@@ -50,7 +50,7 @@ function App() {
       const jobsData = await jobsRes.json()
       const learningData = await learningRes.json()
 
-      if (skillsData.skills) setSkills(skillsData.skills)
+      if (skillsData.skills && skillsData.skills.length > 0) setSkills(skillsData.skills)
       if (jobsData.recommendations) setJobs(jobsData.recommendations)
       if (learningData.learningPath) setLearningPath(learningData.learningPath)
     } catch (err) {
@@ -166,10 +166,6 @@ function LoginPage({ onLogin }) {
 
   return (
     <div className="login-body">
-      <div className="indigo-glow"></div>
-      <div className="blob-1"></div>
-      <div className="blob-2"></div>
-
       <div className="login-card-modern">
         <div className="login-header">
           <div className="login-icon-box">

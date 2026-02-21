@@ -14,13 +14,13 @@
 
   --purple: #7C3AED;
   --purple-light: #9D5BFF;
-  --purple-glow: rgba(124, 58, 237, 0.35);
+  --purple-glow: transparent;
   --purple-10: rgba(124, 58, 237, 0.10);
   --purple-20: rgba(124, 58, 237, 0.20);
 
   --teal: #14B8A6;
   --teal-light: #2DD4BF;
-  --teal-glow: rgba(20, 184, 166, 0.30);
+  --teal-glow: transparent;
   --teal-10: rgba(20, 184, 166, 0.10);
   --teal-20: rgba(20, 184, 166, 0.20);
 
@@ -35,15 +35,15 @@
   --info: #3b82f6;
 
   --border: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(124, 58, 237, 0.15);
+  --border-glow: rgba(255, 255, 255, 0.12);
 
   --radius: 1.25rem;
   --radius-sm: 0.75rem;
   --radius-xs: 0.5rem;
 
-  --shadow-card: 0 4px 24px -1px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 20px var(--purple-glow);
-  --shadow-teal: 0 0 15px var(--teal-glow);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-glow: none;
+  --shadow-teal: none;
 
   --transition: 0.25s ease;
 }
@@ -251,7 +251,7 @@ h4 {
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
-  box-shadow: 0 4px 12px var(--purple-glow);
+  box-shadow: none;
 }
 
 .logo-text {
@@ -317,7 +317,7 @@ h4 {
 .nav-tab.active {
   background: var(--purple);
   color: var(--text-white);
-  box-shadow: 0 4px 12px var(--purple-glow);
+  box-shadow: none;
   font-weight: 700;
 }
 
@@ -350,12 +350,12 @@ h4 {
 .btn-primary {
   background: linear-gradient(135deg, var(--purple), #6d28d9);
   color: white;
-  box-shadow: 0 4px 14px var(--purple-glow);
+  box-shadow: none;
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px var(--purple-glow);
+  background: #7c3aed;
 }
 
 .btn-primary:active {
@@ -519,12 +519,10 @@ h4 {
 
 .confidence-fill.expert {
   background: var(--teal);
-  box-shadow: 0 0 8px var(--teal-glow);
 }
 
 .confidence-fill.advanced {
   background: var(--purple);
-  box-shadow: 0 0 8px var(--purple-glow);
 }
 
 .confidence-fill.intermediate {
@@ -640,7 +638,6 @@ h4 {
 
 .progress-ring-fill.excellent {
   stroke: var(--purple);
-  filter: drop-shadow(0 0 4px var(--purple-glow));
 }
 
 .progress-ring-fill.good {
@@ -857,7 +854,6 @@ h4 {
   height: 14px;
   border-radius: 50%;
   background: var(--purple);
-  box-shadow: 0 0 10px var(--purple-glow);
   z-index: 2;
   display: flex;
   align-items: center;
@@ -868,7 +864,6 @@ h4 {
 
 .step-indicator.completed {
   background: var(--teal);
-  box-shadow: 0 0 10px var(--teal-glow);
 }
 
 .step-indicator.pending {
@@ -986,42 +981,7 @@ h4 {
   overflow: hidden;
 }
 
-/* Background decorations */
-.indigo-glow {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, var(--purple-glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.blob-1 {
-  position: fixed;
-  top: -15%;
-  left: -10%;
-  width: 40%;
-  height: 40%;
-  background: rgba(124, 58, 237, 0.06);
-  border-radius: 50%;
-  filter: blur(100px);
-  pointer-events: none;
-}
-
-.blob-2 {
-  position: fixed;
-  bottom: -15%;
-  right: -10%;
-  width: 40%;
-  height: 40%;
-  background: rgba(20, 184, 166, 0.06);
-  border-radius: 50%;
-  filter: blur(100px);
-  pointer-events: none;
-}
+/* Background decorations removed (No Glow) */
 
 .login-card-modern {
   position: relative;
@@ -1050,7 +1010,7 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px var(--purple-glow);
+  box-shadow: none;
 }
 
 .login-title {
@@ -1147,7 +1107,7 @@ h4 {
   font-family: inherit;
   border-radius: var(--radius-sm);
   border: none;
-  box-shadow: 0 8px 20px var(--purple-glow);
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1159,7 +1119,7 @@ h4 {
 
 .btn-signin:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px var(--purple-glow);
+  background: #7c3aed;
 }
 
 .btn-signin:active {
@@ -1504,7 +1464,7 @@ h4 {
   border-radius: 50%;
   font-size: 1.25rem;
   cursor: pointer;
-  box-shadow: 0 6px 20px var(--purple-glow);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1513,7 +1473,7 @@ h4 {
 
 .ai-assistant-toggle:hover {
   transform: scale(1.08);
-  box-shadow: 0 8px 28px var(--purple-glow);
+  background: #7c3aed;
 }
 
 .ai-assistant-panel {
