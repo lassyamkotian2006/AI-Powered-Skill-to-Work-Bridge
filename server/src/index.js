@@ -73,39 +73,11 @@ app.use(session({
  * Health Check Route
  * Simple endpoint to verify the server is running
  */
-app.get('/', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.json({
         message: '🌉 Skill-to-Work Bridge API',
         version: '2.0.0',
-        status: 'running',
-        endpoints: {
-            auth: {
-                login: 'GET /auth/github',
-                callback: 'GET /auth/github/callback',
-                user: 'GET /auth/user',
-                logout: 'GET /auth/logout'
-            },
-            repos: {
-                list: 'GET /repos',
-                details: 'GET /repos/:owner/:repo/details'
-            },
-            skills: {
-                analyze: 'POST /skills/analyze',
-                list: 'GET /skills',
-                sync: 'POST /skills/sync',
-                summary: 'GET /skills/summary'
-            },
-            jobs: {
-                recommendations: 'GET /jobs/recommendations',
-                roles: 'GET /jobs/roles',
-                careerPath: 'GET /jobs/career/path'
-            },
-            learning: {
-                path: 'GET /learning/path',
-                resources: 'GET /learning/resources/:skillName',
-                roadmap: 'GET /learning/roadmap'
-            }
-        }
+        status: 'running'
     });
 });
 
@@ -193,16 +165,11 @@ app.listen(config.port, () => {
     console.log('===========================================');
     console.log('🌉 Skill-to-Work Bridge API Server');
     console.log('===========================================');
-    console.log(`🚀 Server running at: http://localhost:${config.port}`);
-    console.log(`🔐 GitHub OAuth Login: http://localhost:${config.port}/auth/github`);
-    console.log('');
-    console.log('Available endpoints:');
-    console.log('  - GET /              API info');
-    console.log('  - GET /auth/github   Start OAuth login');
-    console.log('  - GET /auth/user     Get logged-in user');
-    console.log('  - GET /auth/logout   Logout');
-    console.log('  - GET /repos         List your repositories');
-    console.log('  - GET /repos/:owner/:repo/details  Get repo details');
+    const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${config.port}`;
+    console.log(`🚀 Server running at: ${baseUrl}`);
+    console.log(`🔐 GitHub OAuth Login: ${baseUrl}/auth/github`);
+    console.log(`📡 Callback URL: ${config.github.callbackUrl}`);
+    console.log(`🌐 Client URL: ${config.clientUrl}`);
     console.log('===========================================');
     console.log('');
 });
