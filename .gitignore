@@ -59,3 +59,8 @@ Desktop.ini
 server/screenshots/
 client/dist/
 server/dist/
+
+# Temp Test/Utility Scripts
+test_matcher.js
+test_output.txt
+resolve_conflicts.js

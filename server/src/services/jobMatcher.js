@@ -36,83 +36,103 @@ function calculateJobMatch(userSkills, jobRole) {
     // Track matching and missing skills
     const matchingSkills = [];
     const missingSkills = [];
+    let requiredMatches = 0;
+    let preferredMatches = 0;
+    let niceToHaveMatches = 0;
 
     // Check required skills (most important)
     for (const jobSkill of requiredSkills) {
-        const skillName = jobSkill.skills?.name?.toLowerCase();
-        const userHas = userSkillMap.get(skillName);
+        const skillName = jobSkill.skills?.name || jobSkill.name;
+        if (!skillName) continue;
+
+        const skillKey = skillName.toLowerCase();
+        const userHas = userSkillMap.get(skillKey);
 
         if (userHas) {
             matchingSkills.push({
-                name: jobSkill.skills.name,
+                name: skillName,
                 importance: 'required',
                 userLevel: userHas.level,
                 requiredLevel: jobSkill.min_proficiency,
                 meetsLevel: meetsMinLevel(userHas.level, jobSkill.min_proficiency)
             });
+            requiredMatches++;
         } else {
             missingSkills.push({
-                name: jobSkill.skills.name,
+                name: skillName,
                 importance: 'required',
-                minLevel: jobSkill.min_proficiency,
-                category: jobSkill.skills.category
+                minLevel: jobSkill.min_proficiency || 'beginner',
+                category: jobSkill.skills?.category || jobSkill.category || 'other'
             });
         }
     }
 
     // Check preferred skills
     for (const jobSkill of preferredSkills) {
-        const skillName = jobSkill.skills?.name?.toLowerCase();
-        const userHas = userSkillMap.get(skillName);
+        const skillName = jobSkill.skills?.name || jobSkill.name;
+        if (!skillName) continue;
+
+        const skillKey = skillName.toLowerCase();
+        const userHas = userSkillMap.get(skillKey);
 
         if (userHas) {
             matchingSkills.push({
-                name: jobSkill.skills.name,
+                name: skillName,
                 importance: 'preferred',
                 userLevel: userHas.level,
                 requiredLevel: jobSkill.min_proficiency,
                 meetsLevel: meetsMinLevel(userHas.level, jobSkill.min_proficiency)
             });
+            preferredMatches++;
         } else {
             missingSkills.push({
-                name: jobSkill.skills.name,
+                name: skillName,
                 importance: 'preferred',
-                minLevel: jobSkill.min_proficiency,
-                category: jobSkill.skills.category
+                minLevel: jobSkill.min_proficiency || 'beginner',
+                category: jobSkill.skills?.category || jobSkill.category || 'other'
             });
         }
     }
 
     // Check nice-to-have skills
     for (const jobSkill of niceToHaveSkills) {
-        const skillName = jobSkill.skills?.name?.toLowerCase();
-        const userHas = userSkillMap.get(skillName);
+        const skillName = jobSkill.skills?.name || jobSkill.name;
+        if (!skillName) continue;
+
+        const skillKey = skillName.toLowerCase();
+        const userHas = userSkillMap.get(skillKey);
 
         if (userHas) {
             matchingSkills.push({
-                name: jobSkill.skills.name,
+                name: skillName,
                 importance: 'nice-to-have',
                 userLevel: userHas.level
             });
+            niceToHaveMatches++;
         }
     }
 
     // Calculate weighted score
-    // Required: 60%, Preferred: 30%, Nice-to-have: 10%
-    const requiredCount = requiredSkills.length || 1;
-    const preferredCount = preferredSkills.length || 1;
-    const niceToHaveCount = niceToHaveSkills.length || 1;
+    let totalWeight = 0;
+    let earnedWeight = 0;
 
-    const requiredMatches = matchingSkills.filter(s => s.importance === 'required').length;
-    const preferredMatches = matchingSkills.filter(s => s.importance === 'preferred').length;
-    const niceToHaveMatches = matchingSkills.filter(s => s.importance === 'nice-to-have').length;
+    if (requiredSkills.length > 0) {
+        totalWeight += 60;
+        earnedWeight += (requiredMatches / requiredSkills.length) * 60;
+    }
 
-    // Calculate score
-    const requiredScore = (requiredMatches / requiredCount) * 60;
-    const preferredScore = (preferredMatches / preferredCount) * 30;
-    const niceToHaveScore = (niceToHaveMatches / niceToHaveCount) * 10;
+    if (preferredSkills.length > 0) {
+        totalWeight += 30;
+        earnedWeight += (preferredMatches / preferredSkills.length) * 30;
+    }
 
-    const matchScore = Math.round(requiredScore + preferredScore + niceToHaveScore);
+    if (niceToHaveSkills.length > 0) {
+        totalWeight += 10;
+        earnedWeight += (niceToHaveMatches / niceToHaveSkills.length) * 10;
+    }
+
+    // Normalized score (if no skills defined at all, default to 0)
+    const matchScore = totalWeight > 0 ? Math.round((earnedWeight / totalWeight) * 100) : 0;
 
     // Determine fit level
     let fitLevel = 'low';
@@ -128,6 +148,17 @@ function calculateJobMatch(userSkills, jobRole) {
         fitLevel,
         matchingSkills,
         missingSkills: missingSkills.filter(s => s.importance !== 'nice-to-have'), // Only show important gaps
+        roadmap: {
+            steps: missingSkills
+                .filter(s => s.importance !== 'nice-to-have')
+                .map(s => ({
+                    skill: s.name,
+                    importance: s.importance,
+                    targetLevel: s.minLevel,
+                    estimatedHours: s.minLevel === 'expert' ? 100 : s.minLevel === 'advanced' ? 60 : 30
+                })),
+            isQualified: matchScore >= 95
+        },
         experienceLevel: jobRole.experience_level,
         salaryRange: {
             min: jobRole.salary_range_min,

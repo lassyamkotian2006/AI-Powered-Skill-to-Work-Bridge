@@ -53,17 +53,20 @@ router.get('/recommendations', requireAuth, async (req, res) => {
             console.log('Using hardcoded job roles');
         }
 
-        // If no job roles from database, use hardcoded ones
-        if (jobRoles.length === 0) {
+        // If no job roles from database, OR if database roles have no skills, use hardcoded ones
+        const dbRolesHaveNoSkills = jobRoles.length > 0 && !jobRoles.some(jr => jr.job_skills && jr.job_skills.length > 0);
+
+        if (jobRoles.length === 0 || dbRolesHaveNoSkills) {
+            console.log('Using hardcoded job roles (DB roles missing skills or empty)');
             jobRoles = getHardcodedJobRoles();
         }
 
         // Calculate matches for all jobs
         const limit = parseInt(req.query.limit) || 10;
         const skillsForMatching = userSkills.map(s => ({
-            name: s.skills?.name || s.name,
-            level: s.proficiency_level || s.level,
-            category: s.skills?.category || s.category
+            name: s.skills?.name || s.name || 'Unknown Skill',
+            level: s.proficiency_level || s.level || 'beginner',
+            category: s.skills?.category || s.category || 'other'
         }));
 
         const topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit);

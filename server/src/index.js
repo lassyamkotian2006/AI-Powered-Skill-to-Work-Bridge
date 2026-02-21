@@ -20,6 +20,7 @@ const skillsRoutes = require('./routes/skills');
 const jobsRoutes = require('./routes/jobs');
 const learningRoutes = require('./routes/learning');
 const resumeRoutes = require('./routes/resume');
+const aiRoutes = require('./routes/ai');
 
 // Create Express app
 const app = express();
@@ -118,6 +119,12 @@ app.use('/learning', learningRoutes);
  * Generates AI-powered professional resumes
  */
 app.use('/resume', resumeRoutes);
+
+/**
+ * AI Career Advice Routes
+ * Intelligent career guidance
+ */
+app.use('/ai', aiRoutes);
 
 // ===========================================
 // Serve Frontend (Production)

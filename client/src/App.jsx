@@ -12,6 +12,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [skills, setSkills] = useState([])
   const [jobs, setJobs] = useState([])
+  const [interests, setInterests] = useState('')
   const [learningPath, setLearningPath] = useState([])
   const [analyzing, setAnalyzing] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
@@ -118,6 +119,21 @@ function App() {
       <NavTabs activeTab={activeTab} setActiveTab={setActiveTab} isAnalyzed={skills.length > 0} />
 
       <div className="tab-content">
+        <div className="card mb-3 interest-card" style={{ padding: '1.25rem', border: '1px solid var(--purple-20)', background: 'var(--bg-card)' }}>
+          <div className="flex items-center gap-1 mb-1">
+            <span style={{ fontSize: '1.2rem' }}>🎯</span>
+            <h3 style={{ margin: 0, fontSize: '1rem' }}>Career Interests</h3>
+          </div>
+          <p className="text-muted mb-2" style={{ fontSize: '0.85rem' }}>Tell me what roles or industries you're aiming for (e.g. "Fintech", "Cloud Native", "AI Solutions").</p>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Search roles or enter interests..."
+            value={interests}
+            onChange={(e) => setInterests(e.target.value)}
+            style={{ width: '100%', padding: '0.6rem 0.75rem', fontSize: '0.9rem' }}
+          />
+        </div>
         {activeTab === 'skills' && (
           <SkillsTab
             skills={skills}
@@ -146,12 +162,12 @@ function App() {
         )}
       </div>
 
-      {/* AI Assistant Widget */}
       <AIAssistant
         show={showAssistant}
         onToggle={() => setShowAssistant(!showAssistant)}
         skills={skills}
         jobs={jobs}
+        interests={interests}
       />
     </div>
   )
@@ -558,6 +574,34 @@ function EnhancedJobCard({ job, rank, onPreview }) {
         )}
       </div>
 
+      {/* Roadmap to 100% Section */}
+      {job.roadmap && job.roadmap.steps.length > 0 && (
+        <div className="roadmap-preview mt-2" style={{ padding: '1rem', background: 'rgba(124, 58, 237, 0.05)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--purple-20)' }}>
+          <div className="flex items-center gap-1 mb-1">
+            <span style={{ fontSize: '1rem' }}>🚀</span>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--purple-light)' }}>Roadmap to 100%</h4>
+          </div>
+          <div className="roadmap-steps">
+            {job.roadmap.steps.slice(0, 2).map((step, i) => (
+              <div key={i} className="roadmap-step-mini" style={{ marginBottom: '0.75rem' }}>
+                <div className="flex justify-between items-center mb-05">
+                  <span className="step-name" style={{ fontSize: '0.85rem', fontWeight: 500 }}>{step.skill}</span>
+                  <span className="step-time" style={{ fontSize: '0.75rem', opacity: 0.7 }}>~{step.estimatedHours}h</span>
+                </div>
+                <div className="mini-progress-bar" style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div className="mini-progress-fill" style={{ height: '100%', width: '0%', background: 'var(--purple)', transition: 'width 1s ease' }}></div>
+                </div>
+              </div>
+            ))}
+            {job.roadmap.steps.length > 2 && (
+              <p className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
+                +{job.roadmap.steps.length - 2} more skills to master
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* AI Explanation Panel */}
       <div className="ai-explanation">
         <div
@@ -570,7 +614,7 @@ function EnhancedJobCard({ job, rank, onPreview }) {
         </div>
         {expanded && (
           <div className="ai-explanation-content">
-            {job.aiRecommendation || `Your ${job.matchingSkills?.slice(0, 2).join(' and ')} experience aligns well with ${job.title} requirements. Focus on learning ${job.missingSkills?.[0]?.name || 'additional skills'} to strengthen your profile.`}
+            {job.aiRecommendation || `Your ${job.matchingSkills?.slice(0, 2).join(' and ')} experience aligns well with ${job.title} requirements. Focus on mastering the ${job.roadmap?.steps?.[0]?.skill || 'remaining topics'} to reach 100% qualification.`}
           </div>
         )}
       </div>
@@ -1239,28 +1283,31 @@ function ResumeFullPage({ resume, onBack }) {
 // AI ASSISTANT WIDGET
 // =============================================
 
-function AIAssistant({ show, onToggle, skills, jobs }) {
+function AIAssistant({ show, onToggle, skills, jobs, interests }) {
   const [messages, setMessages] = useState([
-    { type: 'bot', text: "Hi! I'm your AI Career Assistant. I can help explain your skill analysis and job recommendations. What would you like to know?" }
+    { type: 'bot', text: "Hi! I'm your AI Career Assistant. Tell me your interests and I can help you reach 100% match for any role! What's on your mind?" }
   ])
   const [isTyping, setIsTyping] = useState(false)
 
   const quickQuestions = [
-    "Why these job recommendations?",
     "What should I learn next?",
-    "How long to reach my goal?",
-    "Explain my skill gaps"
+    "Explain my career roadmap",
+    "How do I reach 100% match?",
+    "Best role for my interests?"
   ]
 
-  const handleQuestion = (question) => {
+  const handleQuestion = async (question) => {
     setMessages(prev => [...prev, { type: 'user', text: question }])
     setIsTyping(true)
 
-    setTimeout(() => {
-      const response = generateAIResponse(question, skills, jobs)
+    try {
+      const response = await generateAIResponse(question, interests)
       setMessages(prev => [...prev, { type: 'bot', text: response }])
+    } catch (err) {
+      setMessages(prev => [...prev, { type: 'bot', text: "I'm having a little trouble connecting. Please try again in a moment!" }])
+    } finally {
       setIsTyping(false)
-    }, 1500)
+    }
   }
 
   return (
@@ -1304,31 +1351,20 @@ function AIAssistant({ show, onToggle, skills, jobs }) {
   )
 }
 
-function generateAIResponse(question, skills, jobs) {
-  const topJob = jobs[0]
-  const skillCount = skills.length
-
-  if (question.includes('job') || question.includes('recommendation')) {
-    return `Based on your ${skillCount} detected skills, I've matched you with roles that align with your experience. ${topJob ? `'${topJob.title}' is your top match at ${topJob.score}% because your skills in ${topJob.matchingSkills?.slice(0, 2).join(' and ')} directly meet the requirements.` : 'Analyze your repos to get personalized recommendations.'}`
+async function generateAIResponse(question, interests) {
+  try {
+    const res = await fetch(`${API_URL}/ai/career-advice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ question, interests })
+    })
+    const data = await res.json()
+    return data.success ? data.advice : "I'm sorry, I couldn't get career advice for you right now."
+  } catch (err) {
+    console.error('AI Advice Error:', err)
+    return "I recommend looking at your roadmap to 100% and focusing on the core skills listed there!"
   }
-
-  if (question.includes('learn') || question.includes('next')) {
-    const missingSkill = topJob?.missingSkills?.[0]
-    return `I recommend focusing on ${missingSkill?.name || 'expanding your skillset'}. This will help you improve your match score for ${topJob?.title || 'target roles'}. Start with online tutorials and build a small project to demonstrate your new skill.`
-  }
-
-  if (question.includes('long') || question.includes('time') || question.includes('goal')) {
-    return `Based on typical learning curves, reaching a strong match (80%+) for your target roles could take 2-4 months of consistent learning. Focus on 1-2 skills at a time, dedicating about 10 hours per week. Project-based learning accelerates this significantly!`
-  }
-
-  if (question.includes('gap') || question.includes('missing')) {
-    const gaps = topJob?.missingSkills?.slice(0, 3).map(s => typeof s === 'string' ? s : s.name) || []
-    return gaps.length > 0
-      ? `Your main skill gaps for ${topJob?.title} are: ${gaps.join(', ')}. These are commonly required skills that employers look for. I recommend prioritizing them in order.`
-      : `Great news! You have a strong skill match. Focus on deepening your expertise in your current skills and staying updated with industry trends.`
-  }
-
-  return `I can help explain your skill analysis, job recommendations, and learning path. Try asking about specific job matches or what skills to learn next!`
 }
 
 export default App

@@ -324,6 +324,48 @@ async function generateLearningAdvice(skill, currentLevel, targetLevel) {
     }
 }
 
+/**
+ * Get personalized career advice based on skills and interest
+ * @param {Array} userSkills - User skills
+ * @param {String} interests - User's stated interests
+ * @param {Array} currentMatches - Top job matches found
+ */
+async function getCareerAdvice(userSkills, interests, currentMatches) {
+    if (!groq) {
+        return "I recommend looking into roles that align with your current skills. Building projects using your strongest languages is always a good start!";
+    }
+
+    const skillList = userSkills.map(s => `${s.name} (${s.level})`).join(', ');
+    const matchList = currentMatches.map(m => `${m.jobTitle} (${m.score}% match)`).join(', ');
+
+    const prompt = `
+        As a technical career advisor, give personalized advice to a developer with these skills: ${skillList}.
+        Their mentioned interests are: "${interests || 'General full-stack development'}".
+        Their current top job matches are: ${matchList || 'None found yet'}.
+
+        Provide:
+        1. A 2-sentence analysis of how their skills align with their interests.
+        2. 2 specific job roles they should target (even if not in current matches).
+        3. A "Path to 100%" - what 2 key skills should they learn next to become perfect for their dream role?
+
+        Keep the tone encouraging, professional, and concise. Format with clear headers.
+    `;
+
+    try {
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.1-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 500
+        });
+
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error('AI career advice error:', error.message);
+        return "I'm having trouble connecting to my brain right now, but your skillset looks promising! Focus on bridging the gaps for roles you're interested in.";
+    }
+}
+
 // =============================================
 // EXPORTS
 // =============================================
@@ -332,5 +374,6 @@ module.exports = {
     extractSkillsFromRepo,
     analyzeAllRepos,
     generateJobRecommendation,
-    generateLearningAdvice
+    generateLearningAdvice,
+    getCareerAdvice
 };
