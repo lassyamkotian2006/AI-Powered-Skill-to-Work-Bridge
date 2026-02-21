@@ -69,7 +69,14 @@ router.get('/recommendations', requireAuth, async (req, res) => {
             category: s.skills?.category || s.category || 'other'
         }));
 
-        const topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit);
+        let topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit);
+
+        // Filter out 0% matches if the user has no skills or if they are just dummy placeholders
+        if (skillsForMatching.length === 0) {
+            topMatches = [];
+        } else {
+            topMatches = topMatches.filter(m => m.score > 0);
+        }
 
         // Get skill gaps
         const skillGaps = jobMatcher.getSkillGaps(topMatches);
