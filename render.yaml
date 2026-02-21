@@ -3,8 +3,8 @@ services:
     name: skill-bridge
     env: node
     plan: free
-    buildCommand: npm install && cd client && npm install && npm run build && cd ../server && npm install
-    startCommand: cd server && npm start
+    buildCommand: npm install --prefix client && npm run build --prefix client && npm install --prefix server
+    startCommand: npm start --prefix server
     envVars:
       - key: NODE_ENV
         value: production
