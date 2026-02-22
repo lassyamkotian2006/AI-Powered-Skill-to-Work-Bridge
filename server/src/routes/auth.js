@@ -11,6 +11,7 @@
 const express = require('express');
 const { Octokit } = require('octokit');
 const bcrypt = require('bcrypt');
+const { requireAuth } = require('../middleware/auth');
 const config = require('../config/env');
 const otpService = require('../services/otpService');
 const dbService = require('../services/supabaseService');
