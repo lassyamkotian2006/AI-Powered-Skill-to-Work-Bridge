@@ -112,6 +112,8 @@ function App() {
       if (data.success) {
         setLearningPath(data.learningPath)
         setMatchPercentage(data.summary.matchPercentage)
+      } else {
+        setLearningPath([{ title: 'Error', items: ['Failed to load learning path. Please try again.'] }])
       }
 
       // 3. Switch to mentor tab
@@ -1044,6 +1046,15 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
         <div className="empty-state">
           <div className="spinner mb-2"></div>
           <p className="text-muted">Building your personalized roadmap...</p>
+        </div>
+      ) : learningPath[0]?.title === 'Error' ? (
+        <div className="empty-state card">
+          <div className="empty-icon">⚠️</div>
+          <h3>Failed to load roadmap</h3>
+          <p className="text-muted">{learningPath[0].items[0]}</p>
+          <button className="btn btn-primary mt-2" onClick={() => setActiveTab('jobs')}>
+            Back to Jobs
+          </button>
         </div>
       ) : (
         <div className="learning-sections">

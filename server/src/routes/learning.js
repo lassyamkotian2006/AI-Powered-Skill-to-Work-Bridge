@@ -52,37 +52,73 @@ router.get('/path', requireAuth, async (req, res) => {
             return res.json(learningPathCache.get(cacheKey));
         }
 
-        // 4. Call Python AI Service
-        const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
-        console.log(`🤖 Calling Python AI service for ${targetRole} at ${AI_SERVICE_URL}...`);
+        let aiData;
+        try {
+            const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    skills: skillsForAI,
+                    interest: interest,
+                    target_role: targetRole
+                }),
+                timeout: 8000 // 8 second timeout
+            });
 
-        const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                skills: skillsForAI,
-                interest: interest,
-                target_role: targetRole
-            })
-        });
-
-        const aiData = await pythonResponse.json();
-
-        if (!aiData.success) {
-            throw new Error(aiData.error || 'AI generation failed');
+            if (pythonResponse.ok) {
+                aiData = await pythonResponse.json();
+            }
+        } catch (fetchError) {
+            console.error('⚠️ Python AI service unreachable or timed out:', fetchError.message);
         }
 
-        // 5. Parse AI Response (Markdown lists to structured sections)
-        const parsedPath = parseAIRoadmap(aiData.learning_path);
+        let parsedPath;
+        let matchPercentageFromAI = 0;
 
-        console.log(`✅ AI Learning path generated with ${aiData.match_percentage}% match\n`);
+        if (aiData && aiData.success) {
+            // Use AI generated path
+            parsedPath = parseAIRoadmap(aiData.learning_path);
+            matchPercentageFromAI = aiData.match_percentage;
+            console.log(`✅ AI Learning path generated with ${aiData.match_percentage}% match\n`);
+        } else {
+            // FALLBACK: Generate structured roadmap from skill gaps
+            console.log('⚠️ Using fallback roadmap generator');
+            const jobRoles = await dbService.getJobRoles();
+            const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole) ||
+                (getHardcodedJobRoles()).find(r => r.title === targetRole);
+
+            const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
+            matchPercentageFromAI = match.score;
+
+            parsedPath = [
+                {
+                    title: 'Current Skill Gaps',
+                    items: match.missingSkills.length > 0
+                        ? match.missingSkills.map(s => `${s.name} (${s.importance})`)
+                        : ['No major gaps detected! Focus on deep diving into your existing stack.']
+                },
+                {
+                    title: 'Recommended Roadmap',
+                    items: match.roadmap.steps.map(s => `Master ${s.skill} to ${s.targetLevel} level (~${s.estimatedHours}h)`)
+                },
+                {
+                    title: 'Next Steps',
+                    items: [
+                        `Focus on ${match.missingSkills[0]?.name || 'advanced projects'} first.`,
+                        'Build a portfolio project demonstrating these new skills.',
+                        'Review official documentation and community tutorials.'
+                    ]
+                }
+            ];
+        }
 
         const responseData = {
             success: true,
             summary: {
-                matchPercentage: aiData.match_percentage,
-                targetRole: aiData.target_role,
-                interest: interest
+                matchPercentage: matchPercentageFromAI,
+                targetRole: targetRole,
+                interest: interest,
+                isAI: !!(aiData && aiData.success)
             },
             learningPath: parsedPath
         };

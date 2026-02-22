@@ -222,13 +222,24 @@ function calculateJobMatch(userSkills, jobRole, interests = "") {
     if (interests && typeof interests === 'string') {
         const interestKeywords = interests.toLowerCase().split(/[,\s]+/).filter(k => k.length > 2);
         const jobTitleLower = jobRole.title.toLowerCase();
+        const jobSkillNamesLower = jobSkills.map(js => (js.skills?.name || js.name || '').toLowerCase());
 
+        let matchedKeywords = 0;
         for (const keyword of interestKeywords) {
-            if (jobTitleLower.includes(keyword)) {
-                interestBoost += 15; // Significant boost if interest matches job title
-                break; // One match is enough for full title boost
+            const inTitle = jobTitleLower.includes(keyword);
+            const inSkills = jobSkillNamesLower.some(sn => sn.includes(keyword));
+
+            if (inTitle) {
+                interestBoost += 20; // Increased from 15
+                matchedKeywords++;
+            } else if (inSkills) {
+                interestBoost += 10; // New: boost if interest matches a required skill
+                matchedKeywords++;
             }
         }
+
+        // Cap interest boost but allow it to be significant
+        interestBoost = Math.min(40, interestBoost);
     }
     matchScore = Math.min(100, matchScore + interestBoost);
 
