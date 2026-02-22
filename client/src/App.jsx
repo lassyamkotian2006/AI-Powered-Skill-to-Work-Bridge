@@ -187,7 +187,8 @@ function App() {
                       await fetch(`${API_URL}/auth/profile`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ interests })
+                        body: JSON.stringify({ interests }),
+                        credentials: 'include'
                       })
                       alert('Interests updated!')
                       loadDashboardData()
@@ -773,6 +774,7 @@ function getCategoryIcon(category) {
 
 function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
   const [dreamJob, setDreamJob] = useState('')
+  const [selectedRoleForSim, setSelectedRoleForSim] = useState(null)
 
   return (
     <div className="jobs-tab">
