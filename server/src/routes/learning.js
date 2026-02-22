@@ -68,22 +68,6 @@ router.get('/path', requireAuth, async (req, res) => {
 
         const aiData = await pythonResponse.json();
 
-        // 4. Call Python AI Service
-        const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
-        console.log(`🤖 Calling Python AI service for ${targetRole} at ${AI_SERVICE_URL}...`);
-
-        const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                skills: skillsForAI,
-                interest: interest,
-                target_role: targetRole
-            })
-        });
-
-        const aiData = await pythonResponse.json();
-
         if (!aiData.success) {
             throw new Error(aiData.error || 'AI generation failed');
         }
