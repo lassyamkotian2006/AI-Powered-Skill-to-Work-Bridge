@@ -232,8 +232,8 @@ function App() {
             skills={skills}
             user={user}
             setResumeData={setResumeData}
-            generating={generatingResume}
-            setGenerating={setGeneratingResume}
+            generating={generating}
+            setGenerating={setGenerating}
             setShowResumePage={setShowResumePage}
           />
         )}
@@ -772,13 +772,35 @@ function getCategoryIcon(category) {
 // =============================================
 
 function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
-  const [selectedRoleForSim, setSelectedRoleForSim] = useState(null)
+  const [dreamJob, setDreamJob] = useState('')
 
   return (
     <div className="jobs-tab">
       <div className="section-header mb-3">
         <h2>Recommended Roles</h2>
         <p className="text-muted">Smart matches based on your GitHub repository analysis</p>
+      </div>
+
+      <div className="card glass-panel mb-4">
+        <h3 className="mb-2">✨ Or Set Your Dream Goal</h3>
+        <p className="text-muted mb-2">Don't see what you're looking for? Enter your dream role.</p>
+        <div className="flex gap-1">
+          <input
+            type="text"
+            value={dreamJob}
+            onChange={(e) => setDreamJob(e.target.value)}
+            placeholder="e.g., Quantum Computing Researcher, ML Architect..."
+            className="form-input"
+            style={{ flex: 1, padding: '0.75rem' }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={() => dreamJob && onSelectTarget(dreamJob)}
+            disabled={!dreamJob}
+          >
+            Set as Goal
+          </button>
+        </div>
       </div>
 
       <div className="grid-2">
@@ -822,8 +844,6 @@ function EnhancedJobCard({ job, rank, onPreview, onSelectTarget, isActiveTarget 
 
   return (
     <div className={`card job-card-enhanced ${getScoreClass(job.score)} ${isActiveTarget ? 'active-target' : ''}`}>
-      {rank <= 3 && <div className="rank-badge">#{rank} Best Fit</div>}
-
       <div className="flex justify-between items-start mb-2">
         <div>
           <h3 className="job-title-pill">{job.title}</h3>
@@ -854,7 +874,7 @@ function EnhancedJobCard({ job, rank, onPreview, onSelectTarget, isActiveTarget 
         </div>
       </div>
 
-      <div className="job-card-actions mb-2">
+      <div className="job-card-actions mb-1">
         <button className="btn btn-outline" onClick={onPreview}>
           Preview Role
         </button>
@@ -865,33 +885,6 @@ function EnhancedJobCard({ job, rank, onPreview, onSelectTarget, isActiveTarget 
         >
           {isActiveTarget ? '✓ Selected' : 'Set as Target'}
         </button>
-      </div>
-
-      <div className="flex justify-between gap-1 mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <a
-          href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(job.title)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="search-link"
-        >
-          LinkedIn ↗
-        </a>
-        <a
-          href={`https://www.indeed.com/jobs?q=${encodeURIComponent(job.title)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="search-link"
-        >
-          Indeed ↗
-        </a>
-        <a
-          href={`https://wellfound.com/jobs?role=${encodeURIComponent(job.title)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="search-link"
-        >
-          Wellfound ↗
-        </a>
       </div>
     </div>
   )
@@ -1042,11 +1035,9 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
           <p className="text-muted">Go to the "Jobs" tab and select a role as your target to generate an AI learning path.</p>
         </div>
       ) : learningPath.length === 0 ? (
-        <div className="empty-state card">
-          <div className="empty-icon">🤖</div>
-          <h3>Generating your roadmap...</h3>
-          <p className="text-muted">HuggingFace AI is crafting a personalized step-by-step path for your selected role.</p>
-          <div className="spinner mt-3"></div>
+        <div className="empty-state">
+          <div className="spinner mb-2"></div>
+          <p className="text-muted">Building your personalized roadmap...</p>
         </div>
       ) : (
         <div className="learning-sections">
