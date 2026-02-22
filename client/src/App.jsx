@@ -274,17 +274,18 @@ function LoginPage({ onLogin }) {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
       })
       const data = await res.json()
       if (res.ok) {
-        window.location.reload() // Or handle state update
+        window.location.reload()
       } else if (data.needsVerification) {
-        // Send OTP and switch to OTP mode
         await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ email }),
+          credentials: 'include'
         })
         setMode('otp')
       } else {
@@ -292,8 +293,9 @@ function LoginPage({ onLogin }) {
       }
     } catch (err) {
       setError('Connection error')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleSignup = async (e) => {
@@ -304,15 +306,16 @@ function LoginPage({ onLogin }) {
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, username })
+        body: JSON.stringify({ email, password, username }),
+        credentials: 'include'
       })
       const data = await res.json()
       if (res.ok) {
-        // Send OTP and move to verification
         await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ email }),
+          credentials: 'include'
         })
         setMode('otp')
       } else {
@@ -320,8 +323,9 @@ function LoginPage({ onLogin }) {
       }
     } catch (err) {
       setError('Connection error')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleVerifyOTP = async (e) => {
@@ -1441,7 +1445,10 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
 
 function ResumeFullPage({ resume, onBack }) {
   const handleDownload = () => {
+    const oldTitle = document.title
+    document.title = (user?.name || 'Resume') + '-SkillBridge'
     window.print()
+    setTimeout(() => { document.title = oldTitle }, 1000)
   }
 
   return (
