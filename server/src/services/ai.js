@@ -80,19 +80,21 @@ IMPORTANT: Output ONLY valid JSON in this exact format, no other text:
 
 Proficiency levels (choose one):
 - "beginner": Basic usage, simple patterns, learning project
-- "intermediate": Functional code, moderate complexity, standard practices
-- "advanced": Production-quality, best practices, complex patterns
-- "expert": Highly optimized, advanced architecture, deep expertise
+- "intermediate": Functional code or designs, moderate complexity, standard practices
+- "advanced": Production-quality work, best practices, complex patterns
+- "expert": Highly optimized, advanced architecture or design, deep expertise
 
 Categories (choose one):
-- "language": Programming languages (JavaScript, Python, etc.)
+- "language": Programming languages (JavaScript, Python, SQL, etc.)
 - "framework": Frameworks and libraries (React, Express, Django, etc.)
 - "database": Database technologies (PostgreSQL, MongoDB, etc.)
-- "tool": Development tools (Docker, Git, etc.)
+- "design": Design tools and concepts (Figma, Design Systems, UX research, etc.)
+- "tool": Development or analysis tools (Docker, Excel, Jira, Tableau, etc.)
 - "cloud": Cloud platforms and services (AWS, Azure, etc.)
-- "concept": Development concepts (REST API, CI/CD, etc.)
+- "concept": General tech concepts (REST API, Agile, SDLC, Technical Writing, etc.)
 
-Confidence: A number between 0.0 and 1.0 indicating how confident you are.`;
+Confidence: A number between 0.0 and 1.0 indicating how confident you are.
+IMPORTANT: Even if the user only has non-coding repositories (e.g. documentation or design assets), extract relevant skills like "Technical Writing", "UI Design", or "Product Management".`;
 
 /**
  * Build the prompt for skill extraction from repo data
@@ -339,13 +341,16 @@ async function getCareerAdvice(userSkills, interests, currentMatches) {
     const matchList = currentMatches.map(m => `${m.jobTitle} (${m.score}% match)`).join(', ');
 
     const prompt = `
-        As a technical career advisor, give personalized advice to a developer with these skills: ${skillList}.
-        Their mentioned interests are: "${interests || 'General full-stack development'}".
+        As a technical career advisor, give personalized advice to someone with these skills: ${skillList}.
+        Their mentioned interests are: "${interests || 'General technology roles'}".
         Their current top job matches are: ${matchList || 'None found yet'}.
 
+        The user is looking for a wide range of roles that suit their field (not just developer jobs).
+        Consider roles like: UI/UX Designer, Data Analyst, Product Manager, Technical Writer, QA Engineer, or Cybersecurity Analyst.
+
         Provide:
-        1. A 2-sentence analysis of how their skills align with their interests.
-        2. 2 specific job roles they should target (even if not in current matches).
+        1. A 2-sentence analysis of how their skills align with their interests across different tech fields.
+        2. 2 specific job roles they should target (ensure they are broad and not just developer roles).
         3. A "Path to 100%" - what 2 key skills should they learn next to become perfect for their dream role?
 
         Keep the tone encouraging, professional, and concise. Format with clear headers.

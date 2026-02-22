@@ -12,13 +12,18 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [skills, setSkills] = useState([])
   const [jobs, setJobs] = useState([])
-  const [interests, setInterests] = useState('')
   const [learningPath, setLearningPath] = useState([])
   const [analyzing, setAnalyzing] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
   const [resumeData, setResumeData] = useState(null)
-  const [generatingResume, setGeneratingResume] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [showResumePage, setShowResumePage] = useState(false)
+
+  // Profile management state
+  const [interests, setInterests] = useState('')
+  const [targetRole, setTargetRole] = useState('')
+  const [matchPercentage, setMatchPercentage] = useState(0)
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
 
   // Check if user is logged in
   useEffect(() => {
@@ -31,6 +36,13 @@ function App() {
       const data = await res.json()
       if (data.authenticated) {
         setUser(data.user)
+        // Fetch profile data
+        const profileRes = await fetch(`${API_URL}/auth/profile`, { credentials: 'include' })
+        const profileData = await profileRes.json()
+        if (profileData.success) {
+          setInterests(profileData.profile.interests || '')
+          setTargetRole(profileData.profile.targetRole || '')
+        }
         loadDashboardData()
       }
     } catch (err) {
@@ -53,7 +65,12 @@ function App() {
 
       if (skillsData.skills && skillsData.skills.length > 0) setSkills(skillsData.skills)
       if (jobsData.recommendations) setJobs(jobsData.recommendations)
-      if (learningData.learningPath) setLearningPath(learningData.learningPath)
+      if (learningData.learningPath) {
+        setLearningPath(learningData.learningPath)
+        if (learningData.summary?.matchPercentage) {
+          setMatchPercentage(learningData.summary.matchPercentage)
+        }
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err)
     }
@@ -76,6 +93,34 @@ function App() {
     setAnalyzing(false)
   }
 
+  const handleSelectTarget = async (roleTitle) => {
+    try {
+      setTargetRole(roleTitle)
+      setLearningPath([]) // Show loading
+
+      // 1. Update backend profile
+      await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetRole: roleTitle }),
+        credentials: 'include'
+      })
+
+      // 2. Fetch new AI learning path
+      const res = await fetch(`${API_URL}/learning/path`, { credentials: 'include' })
+      const data = await res.json()
+      if (data.success) {
+        setLearningPath(data.learningPath)
+        setMatchPercentage(data.summary.matchPercentage)
+      }
+
+      // 3. Switch to mentor tab
+      setActiveTab('learning')
+    } catch (err) {
+      console.error('Select target error:', err)
+    }
+  }
+
   const login = () => {
     window.location.href = `${API_URL}/auth/github`
   }
@@ -86,6 +131,7 @@ function App() {
     setSkills([])
     setJobs([])
     setLearningPath([])
+    setInterests('')
   }
 
   if (loading) {
@@ -119,35 +165,66 @@ function App() {
       <NavTabs activeTab={activeTab} setActiveTab={setActiveTab} isAnalyzed={skills.length > 0} />
 
       <div className="tab-content">
-        <div className="card mb-3 interest-card" style={{ padding: '1.25rem', border: '1px solid var(--purple-20)', background: 'var(--bg-card)' }}>
-          <div className="flex items-center gap-1 mb-1">
-            <span style={{ fontSize: '1.2rem' }}>🎯</span>
-            <h3 style={{ margin: 0, fontSize: '1rem' }}>Career Interests</h3>
-          </div>
-          <p className="text-muted mb-2" style={{ fontSize: '0.85rem' }}>Tell me what roles or industries you're aiming for (e.g. "Fintech", "Cloud Native", "AI Solutions").</p>
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search roles or enter interests..."
-            value={interests}
-            onChange={(e) => setInterests(e.target.value)}
-            style={{ width: '100%', padding: '0.6rem 0.75rem', fontSize: '0.9rem' }}
-          />
-        </div>
         {activeTab === 'skills' && (
-          <SkillsTab
-            skills={skills}
-            onAnalyze={analyzeSkills}
-            analyzing={analyzing}
-          />
+          <div style={{ marginBottom: '2rem' }}>
+            <div className="card glass-panel mb-3">
+              <h3 className="mb-2">🎯 Set Your Focus</h3>
+              <p className="text-muted mb-2">What kind of work are you interested in? (e.g., "Full Stack", "Blockchain", "Cybersecurity")</p>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={interests}
+                  onChange={(e) => setInterests(e.target.value)}
+                  placeholder="Enter your professional interests..."
+                  className="form-input"
+                  style={{ flex: 1, padding: '0.75rem' }}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    try {
+                      setIsUpdatingProfile(true)
+                      await fetch(`${API_URL}/auth/profile`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ interests })
+                      })
+                      alert('Interests updated!')
+                      loadDashboardData()
+                    } catch (err) {
+                      console.error('Update error:', err)
+                    } finally {
+                      setIsUpdatingProfile(false)
+                    }
+                  }}
+                  disabled={isUpdatingProfile}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+            <SkillsTab
+              skills={skills}
+              onAnalyze={analyzeSkills}
+              analyzing={analyzing}
+            />
+          </div>
         )}
 
         {activeTab === 'jobs' && (
-          <JobsTab jobs={jobs} />
+          <JobsTab
+            jobs={jobs}
+            onSelectTarget={handleSelectTarget}
+            activeTargetRole={targetRole}
+          />
         )}
 
         {activeTab === 'learning' && (
-          <LearningTab learningPath={learningPath} />
+          <LearningTab
+            learningPath={learningPath}
+            matchPercentage={matchPercentage}
+            targetRole={targetRole}
+          />
         )}
 
         {activeTab === 'resume' && (
@@ -178,132 +255,315 @@ function App() {
 // =============================================
 
 function LoginPage({ onLogin }) {
-  const [isSignup, setIsSignup] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
+  const [otp, setOtp] = useState('')
+  const [mode, setMode] = useState('login') // 'login' | 'signup' | 'otp' | 'reset'
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [isResetFlow, setIsResetFlow] = useState(false)
 
-  const handleAuth = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
+    setLoading(true)
     setError('')
-
-    if (!email || !password) {
-      setError('Please fill in all fields to proceed.')
-      return
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        window.location.reload() // Or handle state update
+      } else if (data.needsVerification) {
+        // Send OTP and switch to OTP mode
+        await fetch(`${API_URL}/auth/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        })
+        setMode('otp')
+      } else {
+        setError(data.error || 'Invalid credentials')
+      }
+    } catch (err) {
+      setError('Connection error')
     }
+    setLoading(false)
+  }
 
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address.')
-      return
+  const handleSignup = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, username })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        // Send OTP and move to verification
+        await fetch(`${API_URL}/auth/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        })
+        setMode('otp')
+      } else {
+        setError(data.error || 'Registration failed')
+      }
+    } catch (err) {
+      setError('Connection error')
     }
+    setLoading(false)
+  }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
-      return
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      if (mode === 'reset') {
+        const res = await fetch(`${API_URL}/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: otp, newPassword })
+        })
+        const data = await res.json()
+        if (res.ok) {
+          setMode('login')
+          setError('Password reset successful! You can now log in.')
+          setOtp('')
+          setNewPassword('')
+          setIsResetFlow(false)
+        } else {
+          setError(data.error || 'Reset failed')
+        }
+      } else {
+        const res = await fetch(`${API_URL}/auth/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: otp })
+        })
+        if (res.ok) {
+          window.location.reload()
+        } else {
+          setError('Invalid verification code')
+        }
+      }
+    } catch (err) {
+      setError('Verification failed')
     }
+    setLoading(false)
+  }
 
-    // Since this is a bridge to GitHub, we "verify" then proceed to OAuth
-    onLogin()
+  const handleResetRequest = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`${API_URL}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      if (res.ok) {
+        setMode('otp')
+        setIsResetFlow(true)
+        setError('Verification code sent to your email.')
+      } else {
+        setError('Failed to send reset code.')
+      }
+    } catch (err) {
+      setError('Connection error')
+    }
+    setLoading(false)
+  }
+
+  const startGitHubAuth = () => {
+    setLoading(true)
+    window.location.href = `${API_URL}/auth/github`
   }
 
   return (
     <div className="login-body">
       <div className="login-card-modern">
-        <div className="login-header">
-          <div className="login-icon-box">
-            <span className="material-symbols-outlined" style={{ fontSize: '36px', color: 'white' }}>auto_awesome</span>
+        <div className="login-header-branded">
+          <div className="login-logo-orb">
+            <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'white' }}>auto_awesome</span>
           </div>
-          <h2 className="login-title">{isSignup ? 'Create Account' : 'Skill-to-Work'}</h2>
-          <p className="login-subtitle">{isSignup ? 'Sign up to build your career bridge' : 'AI-powered career intelligence'}</p>
+          <h1 className="login-brand-title">Skill-to-Work</h1>
+          <p className="login-brand-subtitle">AI-powered career intelligence</p>
         </div>
 
         <div className="login-content">
-          <form onSubmit={handleAuth}>
-            {error && <div className="login-error-toast">{error}</div>}
+          <p className="login-instruction">
+            {mode === 'login' && 'Please fill in all fields to proceed.'}
+            {mode === 'signup' && 'Create your account to start your journey.'}
+            {mode === 'otp' && 'Enter the 6-digit code sent to your email.'}
+            {mode === 'reset' && 'Verify your identity to reset your password.'}
+          </p>
 
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <div className="input-wrapper">
-                <span className="material-symbols-outlined input-icon">mail</span>
-                <input
-                  className="form-input"
-                  placeholder="name@university.edu"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
+          {error && <div className="login-error-toast">{error}</div>}
 
-            <div className="form-group">
-              <div className="form-actions">
-                <label className="form-label">Password</label>
-                {!isSignup && <a className="forgot-link" href="#">Forgot?</a>}
-              </div>
-              <div className="input-wrapper">
-                <span className="material-symbols-outlined input-icon">lock</span>
-                <input
-                  className="form-input"
-                  placeholder="••••••••"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
+          {(mode === 'login' || mode === 'signup') && (
+            <form onSubmit={mode === 'login' ? handleLogin : handleSignup}>
+              {mode === 'signup' && (
+                <div className="form-group-modern">
+                  <label className="form-label-modern">USERNAME</label>
+                  <div className="input-field-modern">
+                    <span className="material-symbols-outlined input-icon-modern">person</span>
+                    <input
+                      type="text"
+                      placeholder="alex_dev"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
-            {isSignup && (
-              <div className="form-group">
-                <label className="form-label">Confirm Password</label>
-                <div className="input-wrapper">
-                  <span className="material-symbols-outlined input-icon">shield</span>
-                  <input className="form-input" placeholder="••••••••" type="password" />
+              <div className="form-group-modern">
+                <label className="form-label-modern">EMAIL ADDRESS</label>
+                <div className="input-field-modern">
+                  <span className="material-symbols-outlined input-icon-modern">mail</span>
+                  <input
+                    type="email"
+                    placeholder="name@university.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
+
+              <div className="form-group-modern">
+                <div className="flex justify-between items-center">
+                  <label className="form-label-modern">PASSWORD</label>
+                  {mode === 'login' && (
+                    <button type="button" className="forgot-link" onClick={() => setMode('reset')}>Forgot?</button>
+                  )}
+                </div>
+                <div className="input-field-modern">
+                  <span className="material-symbols-outlined input-icon-modern">lock</span>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button className="btn-signin-modern" type="submit" disabled={loading}>
+                {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
+                <span className="material-symbols-outlined">arrow_forward</span>
+              </button>
+            </form>
+          )}
+
+          {mode === 'reset' && (
+            <form onSubmit={handleResetRequest}>
+              <div className="form-group-modern">
+                <label className="form-label-modern">EMAIL ADDRESS</label>
+                <div className="input-field-modern">
+                  <span className="material-symbols-outlined input-icon-modern">mail</span>
+                  <input
+                    type="email"
+                    placeholder="name@university.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <button className="btn-signin-modern" type="submit" disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Code'}
+                <span className="material-symbols-outlined">send</span>
+              </button>
+              <button type="button" className="back-to-login" onClick={() => setMode('login')}>Back to Sign In</button>
+            </form>
+          )}
+
+          {mode === 'otp' && (
+            <form onSubmit={handleVerifyOTP}>
+              <div className="form-group-modern">
+                <label className="form-label-modern">VERIFICATION CODE</label>
+                <div className="input-field-modern">
+                  <span className="material-symbols-outlined input-icon-modern">shield</span>
+                  <input
+                    type="text"
+                    maxLength="6"
+                    placeholder="000000"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    style={{ letterSpacing: '0.5rem', textAlign: 'center' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* If in reset flow, we need the NEW password */}
+              {mode === 'otp' && isResetFlow && (
+                <div className="form-group-modern">
+                  <label className="form-label-modern">NEW PASSWORD</label>
+                  <div className="input-field-modern">
+                    <span className="material-symbols-outlined input-icon-modern">lock</span>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required={mode === 'otp' && isResetFlow}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button className="btn-signin-modern" type="submit" disabled={loading}>
+                {loading ? 'Verifying...' : (newPassword ? 'Reset & Sign In' : 'Verify & Proceed')}
+                <span className="material-symbols-outlined">verified_user</span>
+              </button>
+              <button type="button" className="back-to-login" onClick={() => setMode('login')}>Back to Login</button>
+            </form>
+          )}
+
+          {mode === 'login' && (
+            <>
+              <div className="divider-modern">
+                <span className="divider-text">OR CONTINUE WITH</span>
+              </div>
+
+              <button className="btn-github-auth" onClick={startGitHubAuth}>
+                <svg viewBox="0 0 24 24" className="github-icon-svg">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
+                </svg>
+                Connect with GitHub
+              </button>
+              <p className="github-hint">Secure authentication via GitHub for technical project mapping</p>
+            </>
+          )}
+
+          <div className="login-footer-switch">
+            {mode === 'login' ? (
+              <p>Don't have an account? <button onClick={() => setMode('signup')} className="green-link">Create Account</button></p>
+            ) : (
+              <p>Already have an account? <button onClick={() => setMode('login')} className="green-link">Sign In</button></p>
             )}
-
-            <button className="btn-signin" type="submit">
-              {isSignup ? 'Sign Up' : 'Sign In'}
-              <span className="material-symbols-outlined">arrow_forward</span>
-            </button>
-          </form>
-
-          <div className="divider">
-            <div className="divider-line"></div>
-            <span className="divider-text">Or Continue with</span>
-            <div className="divider-line"></div>
-          </div>
-
-          <div>
-            <button className="btn-github-modern" onClick={handleAuth}>
-              <svg viewBox="0 0 24 24">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
-              </svg>
-              Connect with GitHub
-            </button>
-            <p className="helper-text">
-              Secure authentication via GitHub for technical project mapping.
-            </p>
           </div>
         </div>
 
-        <div className="login-footer">
-          <p className="footer-text">
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}
-            <button
-              className="footer-link-btn"
-              onClick={() => setIsSignup(!isSignup)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: '0.25rem' }}
-            >
-              {isSignup ? 'Sign In' : 'Create Account'}
-            </button>
-          </p>
+        <div className="security-footer-badge">
+          <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#666' }}>verified_user</span>
+          <span>Secure OAuth 2.0 Authentication</span>
         </div>
-      </div>
-
-      <div className="security-badge">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>verified_user</span>
-        <span className="security-text">Secure OAuth 2.0 Authentication</span>
       </div>
     </div>
   )
@@ -511,53 +771,48 @@ function getCategoryIcon(category) {
 // JOBS TAB - ENHANCED
 // =============================================
 
-function JobsTab({ jobs }) {
-  const [selectedRole, setSelectedRole] = useState(null)
+function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
+  const [selectedRoleForSim, setSelectedRoleForSim] = useState(null)
 
   return (
     <div className="jobs-tab">
       <div className="section-header mb-3">
-        <h2>Job Recommendations</h2>
-        <p className="text-muted">Based on your skill profile • Powered by AI matching</p>
+        <h2>Recommended Roles</h2>
+        <p className="text-muted">Smart matches based on your GitHub repository analysis</p>
       </div>
 
-      {jobs.length === 0 ? (
-        <div className="empty-state card">
-          <div className="empty-icon">💼</div>
-          <h3>No direct matches yet</h3>
-          <p className="text-muted">
-            Analyze your GitHub skills to see your match score!
-            <br />
-            Our AI Advisor can still suggest roles in the chat based on your interests.
-          </p>
-        </div>
-      ) : (
-        <div className="grid-2">
-          {jobs.map((job, i) => (
+      <div className="grid-2">
+        {jobs.length === 0 ? (
+          <div className="empty-state card grid-span-2">
+            <div className="empty-icon">💼</div>
+            <h3>No direct matches yet</h3>
+            <p className="text-muted">Analyze your skills to see your match score!</p>
+          </div>
+        ) : (
+          jobs.map((job, i) => (
             <EnhancedJobCard
               key={i}
               job={job}
               rank={i + 1}
-              onPreview={() => setSelectedRole(job)}
+              onPreview={() => setSelectedRoleForSim(job)}
+              onSelectTarget={() => onSelectTarget(job.title)}
+              isActiveTarget={activeTargetRole === job.title}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
-      {/* Role Simulation Modal */}
-      {selectedRole && (
+      {selectedRoleForSim && (
         <RoleSimulationModal
-          role={selectedRole}
-          onClose={() => setSelectedRole(null)}
+          role={selectedRoleForSim}
+          onClose={() => setSelectedRoleForSim(null)}
         />
       )}
     </div>
   )
 }
 
-function EnhancedJobCard({ job, rank, onPreview }) {
-  const [expanded, setExpanded] = useState(false)
-
+function EnhancedJobCard({ job, rank, onPreview, onSelectTarget, isActiveTarget }) {
   const getScoreClass = (score) => {
     if (score >= 80) return 'excellent'
     if (score >= 60) return 'good'
@@ -565,112 +820,79 @@ function EnhancedJobCard({ job, rank, onPreview }) {
     return 'low'
   }
 
-  const scoreClass = getScoreClass(job.score)
-  const circumference = 2 * Math.PI * 28
-  const offset = circumference - (job.score / 100) * circumference
-
   return (
-    <div className="card job-card-enhanced">
-      <div className="job-header">
+    <div className={`card job-card-enhanced ${getScoreClass(job.score)} ${isActiveTarget ? 'active-target' : ''}`}>
+      {rank <= 3 && <div className="rank-badge">#{rank} Best Fit</div>}
+
+      <div className="flex justify-between items-start mb-2">
         <div>
-          <span className="badge badge-primary mb-1">#{rank} Match</span>
-          <h3 className="job-title">{job.title}</h3>
-          <p className="job-meta">
-            {job.experienceLevel} • ${(job.salaryRange?.min / 1000).toFixed(0)}k - ${(job.salaryRange?.max / 1000).toFixed(0)}k
-          </p>
+          <h3 className="job-title-pill">{job.title}</h3>
+          <p className="text-muted" style={{ fontSize: '0.8rem' }}>Match Score: {job.score}%</p>
         </div>
-
-        {/* Animated Progress Ring */}
-        <div className="progress-ring">
-          <svg viewBox="0 0 64 64">
-            <circle className="progress-ring-bg" cx="32" cy="32" r="28" />
-            <circle
-              className={`progress-ring-fill ${scoreClass}`}
-              cx="32" cy="32" r="28"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-            />
-          </svg>
-          <span className="progress-ring-text">{job.score}%</span>
+        <div className={`match-orb ${getScoreClass(job.score)}`}>
+          {job.score}%
         </div>
       </div>
 
-      {/* Skill Breakdown */}
-      <div className="skill-breakdown">
-        {job.matchingSkills?.length > 0 && (
-          <div className="skill-category">
-            <span className="skill-category-label">✅ Matched</span>
-            {job.matchingSkills.slice(0, 4).map((skill, i) => (
-              <span key={i} className="skill-pill matched">{skill}</span>
-            ))}
-          </div>
-        )}
-
-        {job.missingSkills?.length > 0 && (
-          <div className="skill-category">
-            <span className="skill-category-label">📚 To Learn</span>
-            {job.missingSkills.slice(0, 3).map((skill, i) => (
-              <span key={i} className="skill-pill missing">
-                {typeof skill === 'string' ? skill : skill.name}
-              </span>
-            ))}
-          </div>
-        )}
+      <div className="mb-3">
+        <h4 className="section-label">Matched Skills:</h4>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {job.matchingSkills?.slice(0, 5).map((skill, i) => (
+            <span key={i} className="skill-tag matched">{skill}</span>
+          ))}
+        </div>
       </div>
 
-      {/* Roadmap to 100% Section */}
-      {job.roadmap && job.roadmap.steps.length > 0 && (
-        <div className="roadmap-preview mt-2" style={{ padding: '1rem', background: 'rgba(124, 58, 237, 0.05)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--purple-20)' }}>
-          <div className="flex items-center gap-1 mb-1">
-            <span style={{ fontSize: '1rem' }}>🚀</span>
-            <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--purple-light)' }}>Roadmap to 100%</h4>
-          </div>
-          <div className="roadmap-steps">
-            {job.roadmap.steps.slice(0, 2).map((step, i) => (
-              <div key={i} className="roadmap-step-mini" style={{ marginBottom: '0.75rem' }}>
-                <div className="flex justify-between items-center mb-05">
-                  <span className="step-name" style={{ fontSize: '0.85rem', fontWeight: 500 }}>{step.skill}</span>
-                  <span className="step-time" style={{ fontSize: '0.75rem', opacity: 0.7 }}>~{step.estimatedHours}h</span>
-                </div>
-                <div className="mini-progress-bar" style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div className="mini-progress-fill" style={{ height: '100%', width: '0%', background: 'var(--purple)', transition: 'width 1s ease' }}></div>
-                </div>
-              </div>
-            ))}
-            {job.roadmap.steps.length > 2 && (
-              <p className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
-                +{job.roadmap.steps.length - 2} more skills to master
-              </p>
-            )}
-          </div>
+      <div className="mb-3">
+        <h4 className="section-label">Missing Skills:</h4>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {job.missingSkills?.slice(0, 3).map((skill, i) => (
+            <span key={i} className="skill-tag missing">
+              {typeof skill === 'string' ? skill : skill.name}
+            </span>
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* AI Explanation Panel */}
-      <div className="ai-explanation">
-        <div
-          className="ai-explanation-header"
-          onClick={() => setExpanded(!expanded)}
+      <div className="job-card-actions mb-2">
+        <button className="btn btn-outline" onClick={onPreview}>
+          Preview Role
+        </button>
+        <button
+          className={`btn ${isActiveTarget ? 'btn-success' : 'btn-primary'}`}
+          onClick={onSelectTarget}
+          disabled={isActiveTarget}
         >
-          <span>✨</span>
-          <span>Why this role fits you</span>
-          <span style={{ marginLeft: 'auto' }}>{expanded ? '▲' : '▼'}</span>
-        </div>
-        {expanded && (
-          <div className="ai-explanation-content">
-            {job.aiRecommendation || `Your ${job.matchingSkills?.slice(0, 2).join(' and ')} experience aligns well with ${job.title} requirements. Focus on mastering the ${job.roadmap?.steps?.[0]?.skill || 'remaining topics'} to reach 100% qualification.`}
-          </div>
-        )}
+          {isActiveTarget ? '✓ Selected' : 'Set as Target'}
+        </button>
       </div>
 
-      {/* Preview Role Button */}
-      <button
-        className="btn btn-secondary mt-2"
-        style={{ width: '100%' }}
-        onClick={onPreview}
-      >
-        👀 Preview This Role
-      </button>
+      <div className="flex justify-between gap-1 mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <a
+          href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(job.title)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="search-link"
+        >
+          LinkedIn ↗
+        </a>
+        <a
+          href={`https://www.indeed.com/jobs?q=${encodeURIComponent(job.title)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="search-link"
+        >
+          Indeed ↗
+        </a>
+        <a
+          href={`https://wellfound.com/jobs?role=${encodeURIComponent(job.title)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="search-link"
+        >
+          Wellfound ↗
+        </a>
+      </div>
     </div>
   )
 }
@@ -747,6 +969,26 @@ function getRoleSimulationData(title) {
       dailyTasks: ['Manage CI/CD pipelines', 'Monitor infrastructure', 'Automate deployments', 'Incident response'],
       tools: ['Docker', 'Kubernetes', 'AWS', 'Terraform', 'Jenkins', 'Prometheus'],
       responsibilities: ['Ensure system reliability', 'Automate infrastructure', 'Implement security practices']
+    },
+    'UI/UX Designer': {
+      dailyTasks: ['Create wireframes and prototypes', 'Conduct user research', 'Design high-fidelity mockups', 'Handoff to developers', 'Run usability tests'],
+      tools: ['Figma', 'Adobe XD', 'Sketch', 'Miro', 'Lottie', 'Notion'],
+      responsibilities: ['User-centered design', 'Visual consistency', 'Accessibility compliance', 'Stakeholder alignment']
+    },
+    'Data Analyst': {
+      dailyTasks: ['Clean data sets', 'Run SQL queries', 'Create dashboards', 'Present insights to teams', 'Monitor data quality'],
+      tools: ['Tableau', 'Power BI', 'Python (Pandas)', 'SQL', 'Excel', 'Google Analytics'],
+      responsibilities: ['Translate data to strategy', 'Data storytelling', 'Predictive modeling', 'Business performance tracking']
+    },
+    'Product Manager': {
+      dailyTasks: ['Define product requirements', 'Manage product backlog', 'Prioritize features', 'Market analysis', 'Cross-team coordination'],
+      tools: ['Jira', 'Confluence', 'Aha!', 'Slack', 'SQL', 'Mixpanel'],
+      responsibilities: ['Product vision', 'Roadmap execution', 'Market positioning', 'User growth strategies']
+    },
+    'Technical Writer': {
+      dailyTasks: ['Write API documentation', 'Create user guides', 'Review developer docs', 'Edit release notes', 'Interview subject matter experts'],
+      tools: ['Markdown', 'Git', 'Docusaurus', 'Postman', 'Notion', 'Vs Code'],
+      responsibilities: ['Clarity and accuracy', 'Documentation structure', 'Version control for docs', 'Developer experience focus']
     }
   }
 
@@ -761,24 +1003,69 @@ function getRoleSimulationData(title) {
 // LEARNING TAB - ENHANCED
 // =============================================
 
-function LearningTab({ learningPath }) {
+function LearningTab({ learningPath, matchPercentage, targetRole }) {
   return (
     <div className="learning-tab">
-      <div className="section-header mb-3">
-        <h2>Your Learning Path</h2>
-        <p className="text-muted">Skills to learn for your target jobs • Personalized roadmap</p>
+      <div className="section-header mb-4">
+        <div className="flex justify-between items-end">
+          <div>
+            <h2>AI Career Mentor</h2>
+            <p className="text-muted">Personalized roadmap to {targetRole || 'your goal'} using HuggingFace AI</p>
+          </div>
+          {targetRole && (
+            <div className="match-progress-container">
+              <div className="flex justify-between mb-1">
+                <span className="text-muted" style={{ fontSize: '0.75rem' }}>Goal Readiness</span>
+                <span style={{ fontWeight: 700, color: 'var(--teal)' }}>{matchPercentage}%</span>
+              </div>
+              <div className="progress-bar-bg" style={{ width: '150px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                <div
+                  className="progress-bar-fill"
+                  style={{
+                    width: `${matchPercentage}%`,
+                    height: '100%',
+                    background: 'var(--teal)',
+                    borderRadius: '4px',
+                    boxShadow: '0 0 10px var(--teal)'
+                  }}
+                ></div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {learningPath.length === 0 ? (
+      {!targetRole ? (
         <div className="empty-state card">
-          <div className="empty-icon">📚</div>
-          <h3>No learning path yet</h3>
-          <p className="text-muted">Analyze your skills to generate a personalized learning roadmap.</p>
+          <div className="empty-icon">🎯</div>
+          <h3>Select a target role first</h3>
+          <p className="text-muted">Go to the "Jobs" tab and select a role as your target to generate an AI learning path.</p>
+        </div>
+      ) : learningPath.length === 0 ? (
+        <div className="empty-state card">
+          <div className="empty-icon">🤖</div>
+          <h3>Generating your roadmap...</h3>
+          <p className="text-muted">HuggingFace AI is crafting a personalized step-by-step path for your selected role.</p>
+          <div className="spinner mt-3"></div>
         </div>
       ) : (
-        <div className="learning-timeline-enhanced">
-          {learningPath.map((step, i) => (
-            <EnhancedLearningStep key={i} step={step} index={i} />
+        <div className="learning-sections">
+          {learningPath.map((section, i) => (
+            <div key={i} className="card mb-3 glass-panel">
+              <h3 className="mb-2 flex items-center gap-1">
+                <span className="material-symbols-outlined" style={{ color: 'var(--purple-light)', fontSize: '20px' }}>
+                  {section.title.toLowerCase().includes('roadmap') ? 'route' : 'school'}
+                </span>
+                {section.title}
+              </h3>
+              <ul className="learning-list-modern">
+                {section.items.map((item, j) => (
+                  <li key={j} className="mb-1">
+                    <span className="bullet">⚡</span> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
         </div>
       )}

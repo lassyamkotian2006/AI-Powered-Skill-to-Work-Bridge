@@ -64,6 +64,130 @@ async function getUserByGithubId(githubId) {
     return data;
 }
 
+/**
+ * Get user by email
+ */
+async function getUserByEmail(email) {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+}
+
+/**
+ * Create a new user with email and password
+ */
+async function createUser(email, passwordHash, username) {
+    if (!supabase) throw new Error('Database not configured');
+
+    const { data, error } = await supabase
+        .from('users')
+        .insert({
+            email,
+            password_hash: passwordHash,
+            username: username || email.split('@')[0],
+            is_email_verified: false
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/**
+ * Update user verification status
+ */
+async function updateUserVerification(userId, isVerified) {
+    if (!supabase) throw new Error('Database not configured');
+
+    const { error } = await supabase
+        .from('users')
+        .update({ is_email_verified: isVerified })
+        .eq('id', userId);
+
+    if (error) throw error;
+    return true;
+}
+
+/**
+ * Update user password
+ */
+async function updateUserPassword(userId, passwordHash) {
+    if (!supabase) throw new Error('Database not configured');
+
+    const { data, error } = await supabase
+        .from('users')
+        .update({ password_hash: passwordHash })
+        .eq('id', userId);
+
+    if (error) throw error;
+    return { data };
+}
+
+/**
+ * Update user interests
+ */
+async function updateUserInterests(userId, interests) {
+    if (!supabase) throw new Error('Database not configured');
+
+    const { data, error } = await supabase
+        .from('users')
+        .update({ interests: interests })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/**
+ * Update user target role
+ */
+async function updateUserTargetRole(userId, targetRole) {
+    if (!supabase) throw new Error('Database not configured');
+
+    const { data, error } = await supabase
+        .from('users')
+        .update({ target_role: targetRole })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/**
+ * Link GitHub account to an existing user
+ */
+async function linkGitHubAccount(userId, githubUser, accessToken) {
+    if (!supabase) throw new Error('Database not configured');
+
+    const { data, error } = await supabase
+        .from('users')
+        .update({
+            github_id: githubUser.id,
+            avatar_url: githubUser.avatar_url,
+            profile_url: githubUser.html_url,
+            access_token: accessToken,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
 // =============================================
 // REPOSITORY OPERATIONS
 // =============================================
@@ -396,6 +520,13 @@ module.exports = {
     // User operations
     saveUser,
     getUserByGithubId,
+    getUserByEmail,
+    createUser,
+    updateUserVerification,
+    updateUserPassword,
+    updateUserInterests,
+    updateUserTargetRole,
+    linkGitHubAccount,
 
     // Repository operations
     saveRepositories,

@@ -28,3 +28,18 @@ services:
         sync: false
       - key: CLIENT_URL
         value: /
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: skill-bridge-ai
+          property: host
+
+  - type: web
+    name: skill-bridge-ai
+    env: python
+    plan: free
+    buildCommand: pip install -r python_server/requirements.txt
+    startCommand: gunicorn --chdir python_server flask_app:app
+    envVars:
+      - key: HUGGINGFACE_API_KEY
+        sync: false

@@ -6,6 +6,34 @@
  */
 
 // =============================================
+// SKILL RELATIONS & SEMANTIC MAPPING
+// =============================================
+
+/**
+ * Maps skills to related skills to allow "semantic" matching.
+ * Score is between 0 and 1, indicating how much the related skill
+ * covers the knowledge of the main skill.
+ */
+const SKILL_RELATIONS = {
+    // Languages to Concepts
+    'python': { 'data analysis': 0.6, 'scripting': 0.8, 'automation': 0.7, 'backend development': 0.5 },
+    'javascript': { 'web development': 0.8, 'frontend development': 0.7, 'backend development': 0.4 },
+    'sql': { 'database management': 0.8, 'data analysis': 0.5 },
+
+    // Tools to Concepts
+    'docker': { 'ci/cd': 0.5, 'devops': 0.6, 'containerization': 1.0 },
+    'figma': { 'ui design': 0.9, 'ux design': 0.7, 'prototyping': 0.8 },
+
+    // Frameworks to Languages
+    'react': { 'javascript': 0.8, 'frontend development': 0.9 },
+    'node.js': { 'javascript': 0.8, 'backend development': 0.9 },
+
+    // General technical knowledge mappings
+    'git': { 'version control': 1.0, 'collaboration': 0.5 },
+    'markdown': { 'technical writing': 0.4, 'documentation': 0.6 }
+};
+
+// =============================================
 // JOB MATCHING ALGORITHM
 // =============================================
 
@@ -23,7 +51,9 @@ function calculateJobMatch(userSkills, jobRole) {
         userSkillMap.set(name, {
             name: skill.name || skill.skills?.name,
             level: skill.level || skill.proficiency_level,
-            category: skill.category || skill.skills?.category
+            category: skill.category || skill.skills?.category,
+            repoCount: skill.repoCount || skill.repo_count || 0,
+            evidence: skill.evidence || []
         });
     }
 
@@ -46,17 +76,40 @@ function calculateJobMatch(userSkills, jobRole) {
         if (!skillName) continue;
 
         const skillKey = skillName.toLowerCase();
-        const userHas = userSkillMap.get(skillKey);
+        let userHas = userSkillMap.get(skillKey);
+        let matchScore = 0;
+        let isSemanticMatch = false;
 
         if (userHas) {
+            matchScore = 1;
+        } else {
+            // Check for semantic matches (related skills)
+            for (const [userSkill, relations] of userSkillMap) {
+                if (SKILL_RELATIONS[userSkill] && SKILL_RELATIONS[userSkill][skillKey]) {
+                    const relationScore = SKILL_RELATIONS[userSkill][skillKey];
+                    if (relationScore > matchScore) {
+                        matchScore = relationScore;
+                        isSemanticMatch = true;
+                        // Use the user skill's level as a proxy
+                        userHas = relations;
+                    }
+                }
+            }
+        }
+
+        if (userHas && matchScore > 0) {
             matchingSkills.push({
                 name: skillName,
                 importance: 'required',
                 userLevel: userHas.level,
                 requiredLevel: jobSkill.min_proficiency,
-                meetsLevel: meetsMinLevel(userHas.level, jobSkill.min_proficiency)
+                meetsLevel: meetsMinLevel(userHas.level, jobSkill.min_proficiency),
+                semantic: isSemanticMatch,
+                matchStrength: matchScore,
+                repoCount: userHas.repoCount || 0,
+                evidence: userHas.evidence || []
             });
-            requiredMatches++;
+            requiredMatches += matchScore;
         } else {
             missingSkills.push({
                 name: skillName,
@@ -73,17 +126,36 @@ function calculateJobMatch(userSkills, jobRole) {
         if (!skillName) continue;
 
         const skillKey = skillName.toLowerCase();
-        const userHas = userSkillMap.get(skillKey);
+        let userHas = userSkillMap.get(skillKey);
+        let matchScore = 0;
 
         if (userHas) {
+            matchScore = 1;
+        } else {
+            // Semantic match check
+            for (const [userSkill, relations] of userSkillMap) {
+                if (SKILL_RELATIONS[userSkill] && SKILL_RELATIONS[userSkill][skillKey]) {
+                    const relationScore = SKILL_RELATIONS[userSkill][skillKey];
+                    if (relationScore > matchScore) {
+                        matchScore = relationScore;
+                        userHas = relations;
+                    }
+                }
+            }
+        }
+
+        if (userHas && matchScore > 0) {
             matchingSkills.push({
                 name: skillName,
                 importance: 'preferred',
                 userLevel: userHas.level,
                 requiredLevel: jobSkill.min_proficiency,
-                meetsLevel: meetsMinLevel(userHas.level, jobSkill.min_proficiency)
+                meetsLevel: meetsMinLevel(userHas.level, jobSkill.min_proficiency),
+                matchStrength: matchScore,
+                repoCount: userHas.repoCount || 0,
+                evidence: userHas.evidence || []
             });
-            preferredMatches++;
+            preferredMatches += matchScore;
         } else {
             missingSkills.push({
                 name: skillName,
@@ -112,6 +184,19 @@ function calculateJobMatch(userSkills, jobRole) {
         }
     }
 
+    // Calculate category density for the user
+    const categoryCounts = new Map();
+    for (const skill of userSkillMap.values()) {
+        const cat = skill.category || 'other';
+        categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+    }
+
+    // Total weight for categories (used for normalization)
+    const totalUserSkills = userSkills.length;
+
+    // Calculate matched required/preferred logic (already updated in previous steps)
+    // ... (logic for requiredMatches, preferredMatches, niceToHaveMatches stays here)
+
     // Calculate weighted score
     let totalWeight = 0;
     let earnedWeight = 0;
@@ -131,8 +216,31 @@ function calculateJobMatch(userSkills, jobRole) {
         earnedWeight += (niceToHaveMatches / niceToHaveSkills.length) * 10;
     }
 
-    // Normalized score (if no skills defined at all, default to 0)
-    const matchScore = totalWeight > 0 ? Math.round((earnedWeight / totalWeight) * 100) : 0;
+    // Normalized base score (if no skills defined at all, default to 0)
+    let matchScore = totalWeight > 0 ? Math.round((earnedWeight / totalWeight) * 100) : 0;
+
+    // --- ENHANCEMENT: Category Density Boost ---
+    // If the user has a high density of skills in the categories required for this job, give a small boost
+    const jobCategories = new Set(jobSkills.map(js => js.skills?.category || js.category).filter(Boolean));
+    let catBoost = 0;
+
+    for (const cat of jobCategories) {
+        const userCatCount = categoryCounts.get(cat) || 0;
+        if (userCatCount > 2) { // User has multiple skills in this category
+            catBoost += 2;
+        }
+    }
+    matchScore = Math.min(100, matchScore + catBoost);
+
+    // --- ENHANCEMENT: Experience/Quality Boost ---
+    // Use repo_count and evidence as proxies for "Code Quality Signals"
+    let qualityBoost = 0;
+    for (const match of matchingSkills) {
+        // Boost score if the matched skill has high repo count (demonstrates experience)
+        if (match.repoCount >= 5) qualityBoost += 1;
+        else if (match.repoCount >= 3) qualityBoost += 0.5;
+    }
+    matchScore = Math.min(100, matchScore + qualityBoost);
 
     // Determine fit level
     let fitLevel = 'low';
@@ -144,7 +252,7 @@ function calculateJobMatch(userSkills, jobRole) {
         jobId: jobRole.id,
         jobTitle: jobRole.title,
         jobSlug: jobRole.slug,
-        score: matchScore,
+        score: Math.round(matchScore),
         fitLevel,
         matchingSkills,
         missingSkills: missingSkills.filter(s => s.importance !== 'nice-to-have'), // Only show important gaps

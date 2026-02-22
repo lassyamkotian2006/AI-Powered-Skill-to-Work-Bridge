@@ -966,7 +966,7 @@ h4 {
 }
 
 /* =============================================
-   LOGIN PAGE
+   LOGIN PAGE (PREMIUM OVERHAUL)
    ============================================= */
 
 .login-body {
@@ -977,251 +977,243 @@ h4 {
   justify-content: center;
   background: var(--bg-deep);
   padding: 2rem;
-  position: relative;
-  overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0e1a 100%);
 }
-
-/* Background decorations removed (No Glow) */
 
 .login-card-modern {
-  position: relative;
-  z-index: 1;
   width: 100%;
-  max-width: 400px;
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  max-width: 420px;
+  background: #161B22;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
-.login-header {
+.login-header-branded {
   text-align: center;
-  padding: 2.5rem 2rem 1.5rem;
+  padding: 3rem 2rem 1.5rem;
 }
 
-.login-icon-box {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 1rem;
+.login-logo-orb {
+  width: 60px;
+  height: 60px;
   background: var(--purple);
-  border-radius: var(--radius-sm);
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: none;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
 }
 
-.login-title {
-  font-size: 1.5rem;
+.login-brand-title {
+  font-size: 1.85rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--text-white), var(--text-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: white;
   letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
 }
 
-.login-subtitle {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
+.login-brand-subtitle {
+  color: #8b949e;
+  font-size: 0.9rem;
 }
 
 .login-content {
-  padding: 0 2rem 2rem;
+  padding: 0 2.5rem 2.5rem;
 }
 
-/* Form elements */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+.login-instruction {
+  font-size: 0.8rem;
+  color: #8b949e;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+
+.login-error-toast {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  text-align: center;
+}
+
+.form-group-modern {
   margin-bottom: 1.25rem;
 }
 
-.form-label {
-  color: var(--text-secondary);
-  font-size: 0.7rem;
+.form-label-modern {
+  display: block;
+  font-size: 0.65rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  color: #8b949e;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
 }
 
-.form-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.forgot-link {
-  color: var(--teal);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.input-wrapper {
+.input-field-modern {
   position: relative;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  transition: border-color var(--transition);
 }
 
-.input-wrapper:focus-within {
-  border-color: var(--purple-20);
-  box-shadow: 0 0 0 3px var(--purple-10);
-}
-
-.input-icon {
+.input-icon-modern {
   position: absolute;
-  left: 0.75rem;
-  color: var(--text-muted);
+  left: 1rem;
+  color: #6e7681;
   font-size: 1.1rem;
 }
 
-.form-input {
+.input-field-modern input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.75rem;
-  background: transparent;
-  border: none;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #c9d1d9;
+  font-size: 0.9rem;
+  font-family: inherit;
   outline: none;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-family: inherit;
+  transition: border-color 0.2s;
 }
 
-.form-input::placeholder {
-  color: var(--text-muted);
+.input-field-modern input:focus {
+  border-color: var(--purple-light);
 }
 
-.btn-signin {
-  width: 100%;
-  height: 3rem;
-  background: var(--purple);
-  color: white;
-  font-weight: 700;
-  font-family: inherit;
-  border-radius: var(--radius-sm);
+.forgot-link {
+  background: none;
   border: none;
-  box-shadow: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-size: 0.95rem;
-  transition: all var(--transition);
-}
-
-.btn-signin:hover {
-  transform: translateY(-1px);
-  background: #7c3aed;
-}
-
-.btn-signin:active {
-  transform: scale(0.98);
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 1.5rem 0;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.divider-text {
+  color: var(--purple-light);
   font-size: 0.7rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
 }
 
-.btn-github-modern {
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+.btn-signin-modern {
   width: 100%;
-  height: 3rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-family: inherit;
-  border-radius: var(--radius-sm);
+  height: 3.25rem;
+  background: var(--purple);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all var(--transition);
+  margin-top: 1.5rem;
+  transition: all 0.2s;
 }
 
-.btn-github-modern:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--purple-20);
-  color: var(--text-primary);
+.btn-signin-modern:hover {
+  background: var(--purple-light);
+  transform: translateY(-1px);
 }
 
-.btn-github-modern svg {
-  fill: currentColor;
-  width: 22px;
-  height: 22px;
+.divider-modern {
+  display: flex;
+  align-items: center;
+  margin: 2rem 0;
 }
 
-.helper-text {
-  font-size: 0.625rem;
-  text-align: center;
-  color: var(--text-muted);
-  margin-top: 0.75rem;
-  line-height: 1.6;
+.divider-modern::before,
+.divider-modern::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #30363d;
 }
 
-.login-footer {
-  text-align: center;
-  padding: 1.25rem;
-  border-top: 1px solid var(--border);
+.divider-text {
+  padding: 0 1rem;
+  font-size: 0.65rem;
+  color: #6e7681;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
-.footer-text {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.footer-link-btn {
-  color: var(--teal);
+.btn-github-auth {
+  width: 100%;
+  height: 3.25rem;
+  background: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
-  font-family: inherit;
-  font-size: inherit;
-  transition: all var(--transition);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: all 0.2s;
 }
 
-.footer-link-btn:hover {
+.btn-github-auth:hover {
+  background: #30363d;
+  border-color: #8b949e;
+}
+
+.github-icon-svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.github-hint {
+  font-size: 0.65rem;
+  color: #6e7681;
+  text-align: center;
+  margin-top: 1rem;
+  line-height: 1.5;
+}
+
+.login-footer-switch {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  color: #8b949e;
+}
+
+.green-link {
+  background: none;
+  border: none;
   color: var(--teal-light);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.25rem;
+}
+
+.green-link:hover {
   text-decoration: underline;
 }
 
-.security-badge {
+.security-footer-badge {
+  background: #0d1117;
+  padding: 1.25rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  margin-top: 1.5rem;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  z-index: 1;
-  position: relative;
-}
-
-.security-text {
-  font-weight: 500;
+  font-size: 0.7rem;
+  color: #6e7681;
+  font-weight: 600;
+  border-top: 1px solid #30363d;
 }
 
 /* =============================================
@@ -1712,4 +1704,92 @@ h4 {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* AI Career Mentor & Target Roles */
+.active-target {
+  border: 2px solid var(--teal) !important;
+  box-shadow: 0 0 20px rgba(20, 184, 166, 0.2);
+  position: relative;
+}
+
+.active-target::after {
+  content: 'TARGET ROLE';
+  position: absolute;
+  top: -10px;
+  right: 15px;
+  background: var(--teal);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+}
+
+.job-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.learning-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.learning-list-modern {
+  list-style: none;
+  padding: 0;
+}
+
+.learning-list-modern li {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.learning-list-modern li:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateX(5px);
+}
+
+.learning-list-modern .bullet {
+  color: var(--teal);
+  filter: drop-shadow(0 0 5px var(--teal));
+}
+
+.match-progress-container {
+  min-width: 200px;
+}
+
+.grid-span-2 {
+  grid-column: span 2;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid var(--teal);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }

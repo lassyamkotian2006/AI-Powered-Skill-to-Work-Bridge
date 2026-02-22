@@ -17,94 +17,114 @@ const router = express.Router();
 
 /**
  * GET /learning/path
- * Generate personalized learning path based on skill gaps
+ * Generate personalized learning path using HuggingFace AI (via Python microservice)
  */
 router.get('/path', requireAuth, async (req, res) => {
     try {
-        console.log(`📚 Generating learning path for ${req.session.user.login}`);
+        console.log(`📚 Requesting AI learning path for ${req.session.user.login}`);
 
-        // Try to get user skills from database first
-        let userSkills = [];
-        try {
-            const dbUser = await dbService.getUserByGithubId(req.session.user.id);
-            if (dbUser) {
-                userSkills = await dbService.getUserSkills(dbUser.id);
-            }
-        } catch (dbError) {
-            console.log('Database lookup skipped:', dbError.message);
+        // 1. Get user data from database
+        const dbUser = await dbService.getUserByEmail(req.session.verifiedEmail);
+        if (!dbUser) {
+            return res.status(404).json({ error: 'User not found' });
         }
 
-        // If no database skills, use session skills if available
-        if (userSkills.length === 0 && req.session.extractedSkills) {
-            userSkills = req.session.extractedSkills.map(s => ({
-                skills: { name: s.name, category: s.category },
-                proficiency_level: s.level
-            }));
-        }
-
-        console.log(`   User has ${userSkills.length} skills`);
-
-        // Get job roles (try database first, then use hardcoded)
-        let jobRoles = [];
-        try {
-            jobRoles = await dbService.getJobRoles();
-        } catch (dbError) {
-            console.log('Using hardcoded job roles');
-        }
-
-        // If no job roles from database, use hardcoded ones
-        if (jobRoles.length === 0) {
-            jobRoles = getHardcodedJobRoles();
-        }
-
-        // Get job matches and skill gaps
-        const skillsForMatching = userSkills.map(s => ({
+        // 2. Get user skills
+        let userSkills = await dbService.getUserSkills(dbUser.id);
+        const skillsForAI = userSkills.map(s => ({
             name: s.skills?.name || s.name,
-            level: s.proficiency_level || s.level
+            level: s.proficiency_level || s.level,
+            category: s.skills?.category
         }));
 
-        const topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, 5);
-        const skillGaps = jobMatcher.getSkillGaps(topMatches);
+        // 3. Get interests and target role
+        const interest = dbUser.interests || "General Software Engineering";
+        const targetRole = dbUser.target_role || "Full Stack Developer";
 
-        // Build learning path for each skill gap
-        const learningPath = [];
-        let totalHours = 0;
+        // 4. Call Python AI Service
+        const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+        console.log(`🤖 Calling Python AI service for ${targetRole} at ${AI_SERVICE_URL}...`);
 
-        for (const gap of skillGaps.slice(0, 8)) {
-            const estimatedHours = getEstimatedHours(gap.minLevel);
-            totalHours += estimatedHours;
+        const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                skills: skillsForAI,
+                interest: interest,
+                target_role: targetRole
+            })
+        });
 
-            learningPath.push({
-                skill: gap.name,
-                category: gap.category,
-                currentLevel: 'beginner',
-                targetLevel: gap.minLevel || 'intermediate',
-                importance: gap.importance,
-                neededFor: gap.neededFor,
-                estimatedHours,
-                resources: getDefaultResources(gap.name)
-            });
+        const aiData = await pythonResponse.json();
+
+        if (!aiData.success) {
+            throw new Error(aiData.error || 'AI generation failed');
         }
 
-        console.log(`✅ Generated learning path with ${learningPath.length} skills to learn\n`);
+        // 5. Parse AI Response (Markdown lists to structured sections)
+        const parsedPath = parseAIRoadmap(aiData.learning_path);
+
+        console.log(`✅ AI Learning path generated with ${aiData.match_percentage}% match\n`);
 
         res.json({
             success: true,
-            message: 'Learning path generated',
             summary: {
-                skillsToLearn: learningPath.length,
-                estimatedTotalHours: totalHours,
-                estimatedWeeks: Math.ceil(totalHours / 10),
-                targetJobs: topMatches.slice(0, 3).map(m => m.jobTitle)
+                matchPercentage: aiData.match_percentage,
+                targetRole: aiData.target_role,
+                interest: interest
             },
-            learningPath
+            learningPath: parsedPath
         });
 
     } catch (error) {
-        console.error('❌ Learning path error:', error);
-        res.status(500).json({ error: 'Failed to generate learning path', message: error.message });
+        console.error('❌ AI Learning path error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate AI learning path',
+            message: 'Ensure the Python AI server is running on port 5001.'
+        });
     }
 });
+
+/**
+ * Heuristic parser for AI roadmap text
+ */
+function parseAIRoadmap(text) {
+    if (!text) return [];
+
+    const sections = {
+        'Missing Skills': [],
+        'Technologies to Learn': [],
+        'Roadmap': [],
+        'Tools & Frameworks': []
+    };
+
+    let currentSection = 'Roadmap';
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Detect section headers
+        if (trimmed.toLowerCase().includes('missing skills')) currentSection = 'Missing Skills';
+        else if (trimmed.toLowerCase().includes('technologies')) currentSection = 'Technologies to Learn';
+        else if (trimmed.toLowerCase().includes('roadmap') || trimmed.toLowerCase().includes('step')) currentSection = 'Roadmap';
+        else if (trimmed.toLowerCase().includes('tools') || trimmed.toLowerCase().includes('frameworks')) currentSection = 'Tools & Frameworks';
+
+        // Add list items (handle bullet points)
+        else if (trimmed.startsWith('*') || trimmed.startsWith('-') || /^\d+\./.test(trimmed)) {
+            const content = trimmed.replace(/^[\*\-\d\.]+\s*/, '');
+            if (content) sections[currentSection].push(content);
+        }
+    }
+
+    // Convert to the format expected by the frontend
+    return Object.entries(sections).map(([title, items]) => ({
+        title,
+        items
+    }));
+}
 
 /**
  * Hardcoded job roles for when database is not available
