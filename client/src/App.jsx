@@ -1458,9 +1458,10 @@ function ResumeFullPage({ resume, onBack }) {
           ✏️ Edit
         </button>
         <h3>Your Resume</h3>
+        <p className="no-print" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Tip: Select "Save as PDF" in the print destination.</p>
         <div className="flex gap-1">
           <button className="btn btn-primary" onClick={handleDownload}>
-            📥 Download PDF
+            📄 Print / Save as PDF
           </button>
         </div>
       </div>

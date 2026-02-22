@@ -48,15 +48,26 @@ def generate_learning_path():
     User Interest: {interest}
     Target Job Role: {target_role}
 
-    Suggest a complete step-by-step learning path to become a highly qualified {target_role}.
-    Include:
-    * Missing skills to learn
-    * Technologies to learn
-    * Tools and frameworks
-    * Beginner to advanced roadmap
-    * Correct order of learning
-
-    Return the result as a structured list with clear section headers.
+    Suggest a concise step-by-step learning path to become a {target_role}.
+    Focus on the top 5 most critical missing skills and technologies.
+    
+    Return EXACTLY in this format:
+    Missing Skills:
+    * Skill 1
+    * Skill 2
+    
+    Technologies to Learn:
+    * Tech 1
+    * Tech 2
+    
+    Roadmap:
+    1. Step 1 (Beginner)
+    2. Step 2 (Intermediate)
+    3. Step 3 (Advanced)
+    
+    Tools & Frameworks:
+    * Tool 1
+    * Tool 2
     """
 
     try:

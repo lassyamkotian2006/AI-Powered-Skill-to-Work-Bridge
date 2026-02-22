@@ -20,102 +20,72 @@ const router = express.Router();
  * GET /jobs/recommendations
  * Get personalized job recommendations based on user's skills
  */
-router.get('/recommendations', requireAuth, async (req, res) => {
-    try {
-        console.log(`💼 Generating job recommendations for ${req.session.user.login}`);
+// 3. Get interests from profile
+let userInterests = "";
+try {
+    const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+    if (dbUser) {
+        userInterests = dbUser.interests || "";
+    }
+} catch (dbError) {
+    console.log('Interests lookup skipped');
+}
 
-        // Try to get user skills from database first
-        let userSkills = [];
-        try {
-            const dbUser = await dbService.getUserByGithubId(req.session.user.id);
-            if (dbUser) {
-                userSkills = await dbService.getUserSkills(dbUser.id);
-            }
-        } catch (dbError) {
-            console.log('Database lookup skipped:', dbError.message);
-        }
+// 4. Calculate matches for all jobs
+const limit = parseInt(req.query.limit) || 10;
+const skillsForMatching = userSkills.map(s => ({
+    name: s.skills?.name || s.name || 'Unknown Skill',
+    level: s.proficiency_level || s.level || 'beginner',
+    category: s.skills?.category || s.category || 'other'
+}));
 
-        // If no database skills, use session skills if available
-        if (userSkills.length === 0 && req.session.extractedSkills) {
-            userSkills = req.session.extractedSkills.map(s => ({
-                skills: { name: s.name, category: s.category },
-                proficiency_level: s.level
-            }));
-        }
+let topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit, userInterests);
 
-        console.log(`   User has ${userSkills.length} skills`);
+// Filter out 0% matches if the user has no skills or if they are just dummy placeholders
+if (skillsForMatching.length === 0) {
+    topMatches = [];
+} else {
+    topMatches = topMatches.filter(m => m.score > 0);
+}
 
-        // Get all job roles (try database first, then use hardcoded)
-        let jobRoles = [];
-        try {
-            jobRoles = await dbService.getJobRoles();
-        } catch (dbError) {
-            console.log('Using hardcoded job roles');
-        }
+// Get skill gaps
+const skillGaps = jobMatcher.getSkillGaps(topMatches);
 
-        // If no job roles from database, OR if database roles have no skills, use hardcoded ones
-        const dbRolesHaveNoSkills = jobRoles.length > 0 && !jobRoles.some(jr => jr.job_skills && jr.job_skills.length > 0);
+console.log(`✅ Found ${topMatches.length} job matches\n`);
 
-        if (jobRoles.length === 0 || dbRolesHaveNoSkills) {
-            console.log('Using hardcoded job roles (DB roles missing skills or empty)');
-            jobRoles = getHardcodedJobRoles();
-        }
-
-        // Calculate matches for all jobs
-        const limit = parseInt(req.query.limit) || 10;
-        const skillsForMatching = userSkills.map(s => ({
-            name: s.skills?.name || s.name || 'Unknown Skill',
-            level: s.proficiency_level || s.level || 'beginner',
-            category: s.skills?.category || s.category || 'other'
-        }));
-
-        let topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit);
-
-        // Filter out 0% matches if the user has no skills or if they are just dummy placeholders
-        if (skillsForMatching.length === 0) {
-            topMatches = [];
-        } else {
-            topMatches = topMatches.filter(m => m.score > 0);
-        }
-
-        // Get skill gaps
-        const skillGaps = jobMatcher.getSkillGaps(topMatches);
-
-        console.log(`✅ Found ${topMatches.length} job matches\n`);
-
-        res.json({
-            success: true,
-            totalSkills: userSkills.length,
-            recommendations: topMatches.map(m => ({
-                title: m.jobTitle,
-                slug: m.jobSlug,
-                score: m.score,
-                fitLevel: m.fitLevel,
-                experienceLevel: m.experienceLevel,
-                salaryRange: m.salaryRange,
-                matchingSkills: m.matchingSkills.map(s => s.name),
-                missingSkills: m.missingSkills.map(s => ({
-                    name: s.name,
-                    importance: s.importance,
-                    targetLevel: s.minLevel
-                })),
-                aiRecommendation: m.aiRecommendation
-            })),
-            skillGaps: skillGaps.slice(0, 10).map(g => ({
-                skill: g.name,
-                category: g.category,
-                importance: g.importance,
-                neededFor: g.neededFor
-            }))
-        });
+res.json({
+    success: true,
+    totalSkills: userSkills.length,
+    recommendations: topMatches.map(m => ({
+        title: m.jobTitle,
+        slug: m.jobSlug,
+        score: m.score,
+        fitLevel: m.fitLevel,
+        experienceLevel: m.experienceLevel,
+        salaryRange: m.salaryRange,
+        matchingSkills: m.matchingSkills.map(s => s.name),
+        missingSkills: m.missingSkills.map(s => ({
+            name: s.name,
+            importance: s.importance,
+            targetLevel: s.minLevel
+        })),
+        aiRecommendation: m.aiRecommendation
+    })),
+    skillGaps: skillGaps.slice(0, 10).map(g => ({
+        skill: g.name,
+        category: g.category,
+        importance: g.importance,
+        neededFor: g.neededFor
+    }))
+});
 
     } catch (error) {
-        console.error('❌ Job recommendations error:', error);
-        res.status(500).json({
-            error: 'Failed to get recommendations',
-            message: error.message
-        });
-    }
+    console.error('❌ Job recommendations error:', error);
+    res.status(500).json({
+        error: 'Failed to get recommendations',
+        message: error.message
+    });
+}
 });
 
 /**

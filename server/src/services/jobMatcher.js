@@ -41,9 +41,10 @@ const SKILL_RELATIONS = {
  * Calculate match score between user skills and a job role
  * @param {Array} userSkills - User's skills with proficiency levels
  * @param {Object} jobRole - Job role with required skills
+ * @param {string} interests - User's declared interests
  * @returns {Object} Match result with score and skill breakdown
  */
-function calculateJobMatch(userSkills, jobRole) {
+function calculateJobMatch(userSkills, jobRole, interests = "") {
     // Create a map of user skills for quick lookup (case insensitive)
     const userSkillMap = new Map();
     for (const skill of userSkills) {
@@ -194,9 +195,6 @@ function calculateJobMatch(userSkills, jobRole) {
     // Total weight for categories (used for normalization)
     const totalUserSkills = userSkills.length;
 
-    // Calculate matched required/preferred logic (already updated in previous steps)
-    // ... (logic for requiredMatches, preferredMatches, niceToHaveMatches stays here)
-
     // Calculate weighted score
     let totalWeight = 0;
     let earnedWeight = 0;
@@ -219,6 +217,21 @@ function calculateJobMatch(userSkills, jobRole) {
     // Normalized base score (if no skills defined at all, default to 0)
     let matchScore = totalWeight > 0 ? Math.round((earnedWeight / totalWeight) * 100) : 0;
 
+    // --- ENHANCEMENT: Interest Boost ---
+    let interestBoost = 0;
+    if (interests && typeof interests === 'string') {
+        const interestKeywords = interests.toLowerCase().split(/[,\s]+/).filter(k => k.length > 2);
+        const jobTitleLower = jobRole.title.toLowerCase();
+
+        for (const keyword of interestKeywords) {
+            if (jobTitleLower.includes(keyword)) {
+                interestBoost += 15; // Significant boost if interest matches job title
+                break; // One match is enough for full title boost
+            }
+        }
+    }
+    matchScore = Math.min(100, matchScore + interestBoost);
+
     // --- ENHANCEMENT: Category Density Boost ---
     // If the user has a high density of skills in the categories required for this job, give a small boost
     const jobCategories = new Set(jobSkills.map(js => js.skills?.category || js.category).filter(Boolean));
@@ -227,7 +240,7 @@ function calculateJobMatch(userSkills, jobRole) {
     for (const cat of jobCategories) {
         const userCatCount = categoryCounts.get(cat) || 0;
         if (userCatCount > 2) { // User has multiple skills in this category
-            catBoost += 2;
+            catBoost += 4; // Increased from 2
         }
     }
     matchScore = Math.min(100, matchScore + catBoost);
@@ -295,10 +308,11 @@ function meetsMinLevel(userLevel, requiredLevel) {
  * @param {Array} userSkills - User's skills
  * @param {Array} jobRoles - All available job roles
  * @param {number} topN - Number of top matches to return
+ * @param {string} interests - User's declared interests
  * @returns {Array} Top job matches sorted by score
  */
-function getTopJobMatches(userSkills, jobRoles, topN = 5) {
-    const matches = jobRoles.map(job => calculateJobMatch(userSkills, job));
+function getTopJobMatches(userSkills, jobRoles, topN = 5, interests = "") {
+    const matches = jobRoles.map(job => calculateJobMatch(userSkills, job, interests));
 
     // Sort by score descending, then by demand score
     matches.sort((a, b) => {

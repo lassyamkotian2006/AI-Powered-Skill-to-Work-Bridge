@@ -12,8 +12,12 @@ const { requireAuth } = require('../middleware/auth');
 const dbService = require('../services/supabaseService');
 const jobMatcher = require('../services/jobMatcher');
 const aiService = require('../services/ai');
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const router = express.Router();
+
+// Simple in-memory cache for learning paths
+const learningPathCache = new Map();
 
 /**
  * GET /learning/path
@@ -41,6 +45,29 @@ router.get('/path', requireAuth, async (req, res) => {
         const interest = dbUser.interests || "General Software Engineering";
         const targetRole = dbUser.target_role || "Full Stack Developer";
 
+        // --- CACHE CHECK ---
+        const cacheKey = `${dbUser.id}-${targetRole}-${interest}`;
+        if (learningPathCache.has(cacheKey)) {
+            console.log('⚡ Serving learning path from cache');
+            return res.json(learningPathCache.get(cacheKey));
+        }
+
+        // 4. Call Python AI Service
+        const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+        console.log(`🤖 Calling Python AI service for ${targetRole} at ${AI_SERVICE_URL}...`);
+
+        const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                skills: skillsForAI,
+                interest: interest,
+                target_role: targetRole
+            })
+        });
+
+        const aiData = await pythonResponse.json();
+
         // 4. Call Python AI Service
         const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
         console.log(`🤖 Calling Python AI service for ${targetRole} at ${AI_SERVICE_URL}...`);
@@ -66,7 +93,7 @@ router.get('/path', requireAuth, async (req, res) => {
 
         console.log(`✅ AI Learning path generated with ${aiData.match_percentage}% match\n`);
 
-        res.json({
+        const responseData = {
             success: true,
             summary: {
                 matchPercentage: aiData.match_percentage,
@@ -74,7 +101,12 @@ router.get('/path', requireAuth, async (req, res) => {
                 interest: interest
             },
             learningPath: parsedPath
-        });
+        };
+
+        // Save to cache
+        learningPathCache.set(cacheKey, responseData);
+
+        res.json(responseData);
 
     } catch (error) {
         console.error('❌ AI Learning path error:', error.message);

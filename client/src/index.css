@@ -6,46 +6,46 @@
 /* ── VARIABLES ── */
 :root {
   /* Core Palette */
-  --bg-deep: #0A0E1A;
-  --bg-card: rgba(22, 27, 34, 0.7);
-  --bg-card-solid: #161B22;
-  --bg-card-hover: rgba(30, 36, 48, 0.85);
-  --bg-surface: rgba(255, 255, 255, 0.04);
+  --bg-deep: #05070A;
+  --bg-card: rgba(13, 17, 23, 0.8);
+  --bg-card-solid: #0D1117;
+  --bg-card-hover: rgba(22, 27, 34, 0.9);
+  --bg-surface: rgba(255, 255, 255, 0.03);
 
-  --purple: #7C3AED;
-  --purple-light: #9D5BFF;
-  --purple-glow: transparent;
-  --purple-10: rgba(124, 58, 237, 0.10);
-  --purple-20: rgba(124, 58, 237, 0.20);
+  --purple: #8B5CF6;
+  --purple-light: #A78BFA;
+  --purple-glow: rgba(139, 92, 246, 0.3);
+  --purple-10: rgba(139, 92, 246, 0.1);
+  --purple-20: rgba(139, 92, 246, 0.2);
 
-  --teal: #14B8A6;
+  --teal: #0D9488;
   --teal-light: #2DD4BF;
-  --teal-glow: transparent;
-  --teal-10: rgba(20, 184, 166, 0.10);
-  --teal-20: rgba(20, 184, 166, 0.20);
+  --teal-glow: rgba(13, 148, 136, 0.3);
+  --teal-10: rgba(13, 148, 136, 0.1);
+  --teal-20: rgba(13, 148, 136, 0.2);
 
-  --text-primary: #E2E8F0;
+  --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
   --text-white: #FFFFFF;
 
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --info: #3b82f6;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
 
   --border: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(255, 255, 255, 0.12);
+  --border-glow: rgba(255, 255, 255, 0.15);
 
-  --radius: 1.25rem;
-  --radius-sm: 0.75rem;
-  --radius-xs: 0.5rem;
+  --radius: 1rem;
+  --radius-sm: 0.6rem;
+  --radius-xs: 0.4rem;
 
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-glow: none;
-  --shadow-teal: none;
+  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px var(--purple-glow);
+  --shadow-teal: 0 0 20px var(--teal-glow);
 
-  --transition: 0.25s ease;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── RESET & BASE ── */
@@ -108,19 +108,42 @@ h4 {
 .glass-card,
 .card {
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem;
+  padding: 1.75rem;
   box-shadow: var(--shadow-card);
-  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  transition: all var(--transition);
 }
 
 .card:hover {
-  border-color: var(--border-glow);
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+::selection {
+  background: var(--purple-glow);
+  color: var(--text-white);
 }
 
 /* ── LAYOUT UTILITIES ── */
