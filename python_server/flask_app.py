@@ -1,4 +1,9 @@
 import logging
+import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import requests
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -7,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app) # Enable CORS for all routes
 
 # HuggingFace Configuration
 HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
