@@ -3,13 +3,13 @@ services:
     name: skill-bridge
     env: node
     plan: free
-    buildCommand: npm install --prefix client && npm run build --prefix client && npm install --prefix server
-    startCommand: npm start --prefix server
+    buildCommand: npm run render-build
+    startCommand: npm run render-start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
+      - key: NODE_VERSION
+        value: 20
       - key: SESSION_SECRET
         generateValue: true
       - key: GITHUB_CLIENT_ID
@@ -29,17 +29,14 @@ services:
       - key: CLIENT_URL
         value: /
       - key: AI_SERVICE_URL
-        fromService:
-          type: web
-          name: skill-bridge-ai
-          property: host
+        value: http://skill-bridge-ai
 
   - type: web
     name: skill-bridge-ai
     env: python
     plan: free
     buildCommand: pip install -r python_server/requirements.txt
-    startCommand: gunicorn --chdir python_server flask_app:app
+    startCommand: gunicorn --chdir python_server -b 0.0.0.0:$PORT flask_app:app
     envVars:
       - key: HUGGINGFACE_API_KEY
         sync: false
