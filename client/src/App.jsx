@@ -1444,10 +1444,6 @@ function ResumeFullPage({ resume, onBack }) {
     window.print()
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
-
   return (
     <div className="resume-full-page">
       <div className="resume-full-page-toolbar no-print">
@@ -1458,9 +1454,6 @@ function ResumeFullPage({ resume, onBack }) {
         <div className="flex gap-1">
           <button className="btn btn-primary" onClick={handleDownload}>
             📥 Download PDF
-          </button>
-          <button className="btn btn-secondary" onClick={handlePrint}>
-            🖨️ Print
           </button>
         </div>
       </div>
