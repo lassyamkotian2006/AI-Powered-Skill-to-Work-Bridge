@@ -116,17 +116,25 @@ router.get('/github/callback', async (req, res) => {
             req.session.verifiedEmail = verifiedEmail;
         }
 
-        let user = await dbService.getUserByEmail(req.session.verifiedEmail);
+        // 2. Check if we already have a user with this GitHub ID
+        let user = await dbService.getUserByGithubId(githubUser.id);
 
         if (user) {
-            // Link GitHub to existing user
+            // Already identified! Just update their token and link info
             user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
         } else {
-            // Create a new user from GitHub
-            user = await dbService.createUser(req.session.verifiedEmail, null, githubUser.login);
-            user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
-            // Since it's from GitHub, we consider it verified for the session
-            await dbService.updateUserVerification(user.id, true);
+            // No user with this Github ID yet. Check if one exists with this Email.
+            user = await dbService.getUserByEmail(req.session.verifiedEmail);
+
+            if (user) {
+                // Email matches! Link the GitHub account to this existing email user
+                user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
+            } else {
+                // Fresh user! Create and then link
+                user = await dbService.createUser(req.session.verifiedEmail, null, githubUser.login);
+                user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
+                await dbService.updateUserVerification(user.id, true);
+            }
         }
 
         req.session.otpVerified = true;
