@@ -47,8 +47,9 @@ module.exports = {
         : (process.env.NODE_ENV === 'production' ? null : 'http://localhost:3000/auth/github/callback')),
     // Scopes we request from GitHub:
     // - read:user: Access user profile information
+    // - user:email: Access user email addresses (needed if email is private)
     // - repo: Full access to repositories (needed for README, file tree, commits)
-    scopes: ['read:user', 'repo']
+    scopes: ['read:user', 'user:email', 'repo']
   },
 
   // Session configuration
