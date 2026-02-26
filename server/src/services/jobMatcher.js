@@ -16,21 +16,30 @@
  */
 const SKILL_RELATIONS = {
     // Languages to Concepts
-    'python': { 'data analysis': 0.6, 'scripting': 0.8, 'automation': 0.7, 'backend development': 0.5 },
+    'python': { 'data analysis': 0.6, 'scripting': 0.8, 'automation': 0.7, 'backend development': 0.5, 'ai/ml': 0.4 },
     'javascript': { 'web development': 0.8, 'frontend development': 0.7, 'backend development': 0.4 },
-    'sql': { 'database management': 0.8, 'data analysis': 0.5 },
+    'typescript': { 'javascript': 1.0, 'web development': 0.8, 'frontend development': 0.7 },
+    'sql': { 'database management': 0.8, 'data analysis': 0.5, 'backend development': 0.3 },
 
     // Tools to Concepts
-    'docker': { 'ci/cd': 0.5, 'devops': 0.6, 'containerization': 1.0 },
-    'figma': { 'ui design': 0.9, 'ux design': 0.7, 'prototyping': 0.8 },
+    'docker': { 'ci/cd': 0.5, 'devops': 0.6, 'containerization': 1.0, 'cloud computing': 0.4 },
+    'kubernetes': { 'devops': 0.8, 'cloud computing': 0.7, 'orchestration': 1.0 },
+    'figma': { 'ui design': 0.9, 'ux design': 0.7, 'prototyping': 0.8, 'product management': 0.3 },
+    'aws': { 'cloud computing': 0.9, 'devops': 0.6, 'infrastructure': 0.8 },
 
     // Frameworks to Languages
-    'react': { 'javascript': 0.8, 'frontend development': 0.9 },
-    'node.js': { 'javascript': 0.8, 'backend development': 0.9 },
+    'react': { 'javascript': 0.8, 'frontend development': 0.9, 'ui development': 0.8 },
+    'vue.js': { 'javascript': 0.8, 'frontend development': 0.9 },
+    'angular': { 'typescript': 0.8, 'frontend development': 0.9 },
+    'node.js': { 'javascript': 0.8, 'backend development': 0.9, 'server-side': 0.8 },
+    'django': { 'python': 0.8, 'backend development': 0.9 },
+    'flask': { 'python': 0.8, 'backend development': 0.8 },
+    'fastapi': { 'python': 0.9, 'backend development': 0.9, 'api development': 1.0 },
 
     // General technical knowledge mappings
-    'git': { 'version control': 1.0, 'collaboration': 0.5 },
-    'markdown': { 'technical writing': 0.4, 'documentation': 0.6 }
+    'git': { 'version control': 1.0, 'collaboration': 0.5, 'devops': 0.3 },
+    'markdown': { 'technical writing': 0.4, 'documentation': 0.6 },
+    'agile': { 'product management': 0.5, 'project management': 0.7, 'sdlc': 0.6 }
 };
 
 // =============================================
@@ -230,10 +239,10 @@ function calculateJobMatch(userSkills, jobRole, interests = "") {
             const inSkills = jobSkillNamesLower.some(sn => sn.includes(keyword));
 
             if (inTitle) {
-                interestBoost += 20; // Increased from 15
+                interestBoost += 25; // Increased from 20
                 matchedKeywords++;
             } else if (inSkills) {
-                interestBoost += 10; // New: boost if interest matches a required skill
+                interestBoost += 15; // Increased from 10
                 matchedKeywords++;
             }
         }

@@ -16,6 +16,9 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 
 const router = express.Router();
 
+// Get AI service URL from environment or default to localhost
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+
 // Simple in-memory cache for learning paths
 const learningPathCache = new Map();
 
@@ -28,7 +31,7 @@ router.get('/path', requireAuth, async (req, res) => {
         console.log(`📚 Requesting AI learning path for ${req.session.user.login}`);
 
         // 1. Get user data from database
-        const dbUser = await dbService.getUserByEmail(req.session.verifiedEmail);
+        const dbUser = await dbService.getUserById(req.session.user.id);
         if (!dbUser) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -289,7 +292,7 @@ router.get('/resources/:skillName', async (req, res) => {
  */
 router.get('/roadmap', requireAuth, async (req, res) => {
     try {
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+        const dbUser = await dbService.getUserById(req.session.user.id);
         if (!dbUser) {
             return res.status(404).json({ error: 'User not found' });
         }

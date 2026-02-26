@@ -98,18 +98,35 @@ def calculate_match_percentage(user_skills, target_role):
     # This is a placeholder for a more complex matching logic
     # that could compare against a vector db or fixed requirements
     relevant_keywords = {
-        "Backend Developer": ["node.js", "python", "sql", "api", "database", "git"],
-        "Frontend Developer": ["javascript", "react", "html", "css", "figma", "git"],
-        "AI Engineer": ["python", "machine learning", "pytorch", "tensorflow", "data analysis"],
-        "UI/UX Designer": ["figma", "design", "user research", "prototyping"]
+        "Backend Developer": ["node.js", "python", "sql", "api", "database", "git", "express", "django", "flask", "docker", "postgreSQL"],
+        "Frontend Developer": ["javascript", "react", "html", "css", "figma", "git", "typescript", "next.js", "tailwind", "sass"],
+        "Full Stack Developer": ["javascript", "react", "node.js", "sql", "api", "git", "html", "css", "database", "docker"],
+        "AI Engineer": ["python", "machine learning", "pytorch", "tensorflow", "data analysis", "numpy", "pandas", "scikit-learn"],
+        "UI/UX Designer": ["figma", "design", "user research", "prototyping", "adobe xd", "sketch", "user interface"],
+        "DevOps Engineer": ["docker", "kubernetes", "aws", "ci/cd", "linux", "terraform", "jenkins", "ansible"],
+        "Data Scientist": ["python", "r", "sql", "machine learning", "statistics", "data visualization", "pandas"],
     }
     
-    keywords = relevant_keywords.get(target_role, ["git", "api"])
+    # Try to find target role match, fallback to "Developer" keywords if not found
+    keywords = relevant_keywords.get(target_role, [])
+    if not keywords:
+        # Heuristic for roles not in dictionary: use common tech keywords
+        keywords = ["git", "api", "software", "data", "problem solving"]
+    
     user_skill_names = [s['name'].lower() for s in user_skills]
     
-    matches = [k for k in keywords if any(k in us for us in user_skill_names)]
-    percentage = int((len(matches) / len(keywords)) * 100) if keywords else 0
-    return min(max(percentage, 10), 95) # Keep between 10% and 95% for demo
+    matches = [k for k in keywords if any(k.lower() in us.lower() for us in user_skill_names)]
+    
+    if not keywords:
+        return 0
+        
+    percentage = int((len(matches) / len(keywords)) * 100)
+    
+    # Adjust for number of skills to avoid overly low scores for beginners
+    if len(user_skills) > 10:
+        percentage += 10
+    
+    return min(max(percentage, 15), 98) # Keep between 15% and 98%
 
 if __name__ == '__main__':
     app.run(port=5001, debug=True)
