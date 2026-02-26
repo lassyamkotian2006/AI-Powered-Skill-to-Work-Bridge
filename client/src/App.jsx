@@ -173,7 +173,7 @@ function App() {
         {activeTab === 'skills' && (
           <div style={{ marginBottom: '2rem' }}>
             <div className="card glass-panel mb-3">
-              <h3 className="mb-2">🎯 Set Your Focus</h3>
+              <h3 className="mb-2">Set Your Focus</h3>
               <p className="text-muted mb-2">What kind of work are you interested in? (e.g., "Full Stack", "Blockchain", "Cybersecurity")</p>
               <div className="flex gap-1">
                 <input
@@ -195,7 +195,7 @@ function App() {
                         body: JSON.stringify({ interests }),
                         credentials: 'include'
                       })
-                      alert('Interests updated!')
+                      // No alert needed for better UX, just reload data
                       loadDashboardData()
                     } catch (err) {
                       console.error('Update error:', err)
@@ -205,7 +205,7 @@ function App() {
                   }}
                   disabled={isUpdatingProfile}
                 >
-                  Save
+                  {isUpdatingProfile ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>
@@ -1069,7 +1069,7 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
 
       {!targetRole ? (
         <div className="empty-state card">
-          <div className="empty-icon">🎯</div>
+          <div className="empty-icon">📍</div>
           <h3>Select a target role first</h3>
           <p className="text-muted">Go to the "Jobs" tab and select a role as your target to generate an AI learning path.</p>
         </div>
@@ -1138,7 +1138,7 @@ function EnhancedLearningStep({ step, index }) {
 
         {step.neededFor?.length > 0 && (
           <p className="text-muted mt-2" style={{ fontSize: '0.8rem' }}>
-            🎯 Needed for: {step.neededFor.join(', ')}
+            📍 Needed for: {step.neededFor.join(', ')}
           </p>
         )}
 
