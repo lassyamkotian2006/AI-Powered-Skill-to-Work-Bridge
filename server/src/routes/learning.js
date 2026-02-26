@@ -83,12 +83,11 @@ router.get('/path', requireAuth, async (req, res) => {
             parsedPath = parseAIRoadmap(aiData.learning_path);
             matchPercentageFromAI = aiData.match_percentage;
             console.log(`✅ AI Learning path generated with ${aiData.match_percentage}% match\n`);
-        } else {
             // FALLBACK: Generate structured roadmap from skill gaps
             console.log('⚠️ Using fallback roadmap generator');
             const jobRoles = await dbService.getJobRoles();
             const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole) ||
-                (getHardcodedJobRoles()).find(r => r.title === targetRole);
+                (jobMatcher.getHardcodedJobRoles()).find(r => r.title === targetRole);
 
             const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
             matchPercentageFromAI = match.score;

@@ -34,9 +34,13 @@ router.get('/recommendations', requireAuth, async (req, res) => {
 
         // 2. Get all available job roles
         let jobRoles = await dbService.getJobRoles();
-        if (!jobRoles || jobRoles.length === 0) {
-            console.log('⚠️ Job Recommendations: No job roles in DB, using hardcoded fallback');
-            jobRoles = getHardcodedJobRoles();
+
+        // If no roles in DB, or if roles have no skills (indicates broken/empty seed), use hardcoded ones as fallback
+        const hasNoSkills = jobRoles && jobRoles.length > 0 && !jobRoles.some(r => r.job_skills && r.job_skills.length > 0);
+
+        if (!jobRoles || jobRoles.length === 0 || hasNoSkills) {
+            console.log(`⚠️ Job Recommendations: ${hasNoSkills ? 'DB roles found but no skills linked.' : 'No roles in DB.'} Using hardcoded fallback.`);
+            jobRoles = jobMatcher.getHardcodedJobRoles();
         } else {
             console.log(`💼 Job Recommendations: Loaded ${jobRoles.length} job roles from database`);
         }
@@ -100,172 +104,6 @@ router.get('/recommendations', requireAuth, async (req, res) => {
         });
     }
 });
-
-/**
- * Hardcoded job roles for when database is not available
- */
-function getHardcodedJobRoles() {
-    return [
-        {
-            id: '1', title: 'Frontend Developer', slug: 'frontend-developer',
-            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 80000, demand_score: 85,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'React', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
-            ]
-        },
-        {
-            id: '2', title: 'Backend Developer', slug: 'backend-developer',
-            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 85000, demand_score: 80,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Node.js', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'REST API', category: 'concept' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
-            ]
-        },
-        {
-            id: '3', title: 'Full Stack Developer', slug: 'fullstack-developer',
-            experience_level: 'mid', salary_range_min: 70000, salary_range_max: 110000, demand_score: 90,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'React', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Node.js', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
-            ]
-        },
-        {
-            id: '4', title: 'React Developer', slug: 'react-developer',
-            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 90000, demand_score: 85,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'React', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'TypeScript', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Redux', category: 'framework' } }
-            ]
-        },
-        {
-            id: '5', title: 'Node.js Developer', slug: 'nodejs-developer',
-            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 85000, demand_score: 80,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'Node.js', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'JavaScript', category: 'language' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Express.js', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'MongoDB', category: 'database' } }
-            ]
-        },
-        {
-            id: '6', title: 'DevOps Engineer', slug: 'devops-engineer',
-            experience_level: 'mid', salary_range_min: 80000, salary_range_max: 130000, demand_score: 75,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Docker', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Kubernetes', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'AWS', category: 'cloud' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'CI/CD', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Linux', category: 'tool' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Python', category: 'language' } }
-            ]
-        },
-        {
-            id: '7', title: 'Python Developer', slug: 'python-developer',
-            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 90000, demand_score: 80,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Python', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Django', category: 'framework' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Flask', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'Docker', category: 'tool' } }
-            ]
-        },
-        {
-            id: '8', title: 'Data Scientist', slug: 'data-scientist',
-            experience_level: 'mid', salary_range_min: 90000, salary_range_max: 140000, demand_score: 70,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'Python', category: 'language' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Machine Learning', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
-                { importance: 'preferred', min_proficiency: 'intermediate', skills: { name: 'Deep Learning', category: 'concept' } }
-            ]
-        },
-        {
-            id: '9', title: 'UI/UX Designer', slug: 'ui-ux-designer',
-            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 90000, demand_score: 75,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Figma', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'HTML', category: 'language' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'CSS', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'React', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Design Systems', category: 'concept' } }
-            ]
-        },
-        {
-            id: '10', title: 'Data Analyst', slug: 'data-analyst',
-            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 85000, demand_score: 80,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Python', category: 'language' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'PostgreSQL', category: 'database' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Excel', category: 'tool' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'Tableau', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Data Visualization', category: 'concept' } }
-            ]
-        },
-        {
-            id: '11', title: 'Product Manager', slug: 'product-manager',
-            experience_level: 'mid', salary_range_min: 90000, salary_range_max: 150000, demand_score: 70,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Agile', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Product Roadmap', category: 'concept' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'SQL', category: 'language' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Market Research', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Jira', category: 'tool' } }
-            ]
-        },
-        {
-            id: '12', title: 'Quality Assurance Engineer', slug: 'qa-engineer',
-            experience_level: 'entry', salary_range_min: 55000, salary_range_max: 90000, demand_score: 75,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Automation Testing', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Selenium', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'JavaScript', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'Jest', category: 'framework' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Bug Tracking', category: 'concept' } }
-            ]
-        },
-        {
-            id: '13', title: 'Technical Writer', slug: 'technical-writer',
-            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 85000, demand_score: 65,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'advanced', skills: { name: 'Technical Writing', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Markdown', category: 'language' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'REST API', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Documentation Tools', category: 'tool' } }
-            ]
-        },
-        {
-            id: '14', title: 'Cybersecurity Analyst', slug: 'cybersecurity-analyst',
-            experience_level: 'entry', salary_range_min: 65000, salary_range_max: 110000, demand_score: 85,
-            job_skills: [
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Network Security', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Penetration Testing', category: 'concept' } },
-                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Python', category: 'language' } },
-                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'Linux', category: 'tool' } },
-                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Threat Analysis', category: 'concept' } }
-            ]
-        }
-    ];
-}
 
 /**
  * GET /jobs/roles

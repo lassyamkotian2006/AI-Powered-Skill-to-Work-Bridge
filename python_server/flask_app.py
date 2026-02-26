@@ -105,6 +105,10 @@ def calculate_match_percentage(user_skills, target_role):
         "UI/UX Designer": ["figma", "design", "user research", "prototyping", "adobe xd", "sketch", "user interface"],
         "DevOps Engineer": ["docker", "kubernetes", "aws", "ci/cd", "linux", "terraform", "jenkins", "ansible"],
         "Data Scientist": ["python", "r", "sql", "machine learning", "statistics", "data visualization", "pandas"],
+        "Product Manager": ["agile", "roadmap", "jira", "market research", "stakeholder", "product lifecycle", "prd"],
+        "Technical Writer": ["documentation", "technical writing", "markdown", "api reference", "technical documentation", "content strategy"],
+        "QA Engineer": ["automation testing", "selenium", "jest", "bug tracking", "quality assurance", "test cases", "cypress"],
+        "Cybersecurity Analyst": ["network security", "pentesting", "vulnerability", "firewall", "encryption", "threat analysis"],
     }
     
     # Try to find target role match, fallback to "Developer" keywords if not found

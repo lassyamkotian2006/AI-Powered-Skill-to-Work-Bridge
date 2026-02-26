@@ -205,9 +205,17 @@ function extractSkillsFallback(repoData) {
         { name: 'Google Cloud', category: 'cloud', pattern: /gcp|google cloud/i },
         { name: 'REST API', category: 'concept', pattern: /rest\s*api|restful/i },
         { name: 'GraphQL', category: 'concept', pattern: /graphql/i },
-        { name: 'Technical Writing', category: 'concept', pattern: /documentation|technical writing|markdown/i },
-        { name: 'Agile', category: 'concept', pattern: /agile|scrum|kanban/i },
-        { name: 'Unit Testing', category: 'concept', pattern: /jest|mocha|chai|testing/i },
+        { name: 'Technical Writing', category: 'concept', pattern: /documentation|technical writing|markdown|readme/i },
+        { name: 'Technical Documentation', category: 'concept', pattern: /user guide|api reference|specification/i },
+        { name: 'Agile', category: 'concept', pattern: /agile|scrum|kanban|sprint/i },
+        { name: 'Project Management', category: 'concept', pattern: /project management|roadmap|planning|deliverable/i },
+        { name: 'Unit Testing', category: 'concept', pattern: /jest|mocha|chai|testing|junit|pytest/i },
+        { name: 'UI Design', category: 'design', pattern: /figma|sketch|adobe xd|ui design|mockup/i },
+        { name: 'UX Research', category: 'design', pattern: /ux research|user interaction|accessibility/i },
+        { name: 'Data Visualization', category: 'concept', pattern: /tableau|power bi|visualization|matplotlib|seaborn/i },
+        { name: 'SQL', category: 'language', pattern: /sql|mysql|postgresql|sqlite/i },
+        { name: 'Excel', category: 'tool', pattern: /excel|spreadsheet|csv/i },
+        { name: 'CI/CD', category: 'concept', pattern: /jenkins|gitlab ci|github actions|ci\/cd/i }
     ];
 
     for (const { name, category, pattern } of patterns) {
