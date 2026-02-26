@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import './App.css'
 
 // API Base URL - In production, we use a relative path because the frontend is served by the backend
@@ -156,6 +158,7 @@ function App() {
     return (
       <ResumeFullPage
         resume={resumeData}
+        user={user}
         onBack={() => setShowResumePage(false)}
       />
     )
@@ -1454,12 +1457,39 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
 // FULL-PAGE RESUME VIEW
 // =============================================
 
-function ResumeFullPage({ resume, onBack }) {
-  const handleDownload = () => {
-    const oldTitle = document.title
-    document.title = (user?.name || 'Resume') + '-SkillBridge'
-    window.print()
-    setTimeout(() => { document.title = oldTitle }, 1000)
+function ResumeFullPage({ resume, user, onBack }) {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      const element = document.getElementById('resume-print')
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#FFFFFF'
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      const imgProps = pdf.getImageProperties(imgData)
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      pdf.save(`${user?.name || 'Resume'}-SkillBridge.pdf`)
+    } catch (err) {
+      console.error('PDF generation error:', err)
+      // Fallback to print if PDF generation fails
+      window.print()
+    }
+    setDownloading(false)
   }
 
   return (
@@ -1471,8 +1501,22 @@ function ResumeFullPage({ resume, onBack }) {
         <h3>Your Resume</h3>
         <p className="no-print" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Tip: Select "Save as PDF" in the print destination.</p>
         <div className="flex gap-1">
-          <button className="btn btn-primary" onClick={handleDownload}>
-            📄 Print / Save as PDF
+          <button
+            className={`btn btn-primary ${downloading ? 'ai-shimmer' : ''}`}
+            onClick={handleDownload}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <>
+                <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2, marginRight: '8px' }}></div>
+                Downloading...
+              </>
+            ) : (
+              <>📄 Download PDF</>
+            )}
+          </button>
+          <button className="btn btn-secondary no-print" onClick={() => window.print()}>
+            🖨️ Print
           </button>
         </div>
       </div>

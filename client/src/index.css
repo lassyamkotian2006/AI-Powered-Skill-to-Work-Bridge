@@ -1352,13 +1352,16 @@ h4 {
 .resume-preview {
   width: 100%;
   max-width: 800px;
-  background: #FFFFFF;
-  color: #1a1a2e;
-  padding: 2.5rem;
+  background: #FFFFFF !important;
+  color: #1a1a2e !important;
+  padding: 3rem;
   border-radius: var(--radius);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  font-family: 'Georgia', 'Times New Roman', serif;
-  line-height: 1.5;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  font-family: 'Inter', 'Georgia', serif;
+  line-height: 1.6;
+  min-height: 297mm;
+  /* A4 height */
+  margin: 0 auto;
 }
 
 .resume-header {
@@ -1463,6 +1466,7 @@ h4 {
   display: flex;
   justify-content: center;
   padding: 2rem 1rem;
+  background: var(--bg-deep);
 }
 
 /* ── AI ASSISTANT ── */
