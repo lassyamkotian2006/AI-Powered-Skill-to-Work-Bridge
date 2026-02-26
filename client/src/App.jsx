@@ -799,7 +799,7 @@ function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
             style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
             onClick={() => setShowDreamInput(true)}
           >
-            ✨ Set Custom Goal
+            Set Custom Goal
           </button>
         )}
       </div>
@@ -820,7 +820,7 @@ function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
           >
             ✕
           </button>
-          <h3 className="mb-2">✨ Set Your Dream Goal</h3>
+          <h3 className="mb-2">Set Your Dream Goal</h3>
           <p className="text-muted mb-2">Enter any career path to generate a personalized roadmap.</p>
           <div className="flex gap-1">
             <input

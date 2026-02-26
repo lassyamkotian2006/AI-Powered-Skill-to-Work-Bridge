@@ -58,11 +58,24 @@ router.get('/recommendations', requireAuth, async (req, res) => {
 
         let topMatches = jobMatcher.getTopJobMatches(skillsForMatching, jobRoles, limit, userInterests);
 
-        // Filter out 0% matches if the user has no skills or if they are just dummy placeholders
-        if (skillsForMatching.length === 0) {
-            topMatches = [];
-        } else {
-            topMatches = topMatches.filter(m => m.score > 0);
+        // Filter out 0% matches (e.g., jobs that don't match skills OR interests)
+        topMatches = topMatches.filter(m => m.score > 0);
+
+        // If still no matches after interest boost, provide a few default roles so the tab isn't empty
+        if (topMatches.length === 0 && jobRoles.length > 0) {
+            console.log("⚠️ No matches found even with interest boost. Showing top demand roles.");
+            topMatches = jobRoles.slice(0, 3).map(role => {
+                const match = jobMatcher.calculateJobMatch(skillsForMatching, role, userInterests);
+                return {
+                    jobTitle: role.title,
+                    jobSlug: role.slug,
+                    score: Math.max(match.score, 10), // Give a base score of 10% for visibility
+                    fitLevel: 'low',
+                    matchingSkills: [],
+                    missingSkills: role.job_skills?.map(js => ({ name: js.skills?.name || js.name, importance: js.importance })) || [],
+                    roadmap: { steps: [] }
+                };
+            });
         }
 
         // Get skill gaps
