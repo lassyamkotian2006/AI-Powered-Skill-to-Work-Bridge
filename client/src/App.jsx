@@ -784,35 +784,63 @@ function getCategoryIcon(category) {
 function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
   const [dreamJob, setDreamJob] = useState('')
   const [selectedRoleForSim, setSelectedRoleForSim] = useState(null)
+  const [showDreamInput, setShowDreamInput] = useState(false)
 
   return (
     <div className="jobs-tab">
-      <div className="section-header mb-3">
-        <h2>Recommended Roles</h2>
-        <p className="text-muted">Smart matches based on your GitHub repository analysis</p>
+      <div className="section-header mb-3 flex justify-between items-end">
+        <div>
+          <h2>Recommended Roles</h2>
+          <p className="text-muted">Smart matches based on your GitHub repository analysis</p>
+        </div>
+        {!showDreamInput && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+            onClick={() => setShowDreamInput(true)}
+          >
+            ✨ Set Custom Goal
+          </button>
+        )}
       </div>
 
-      <div className="card glass-panel mb-4">
-        <h3 className="mb-2">✨ Or Set Your Dream Goal</h3>
-        <p className="text-muted mb-2">Don't see what you're looking for? Enter your dream role.</p>
-        <div className="flex gap-1">
-          <input
-            type="text"
-            value={dreamJob}
-            onChange={(e) => setDreamJob(e.target.value)}
-            placeholder="e.g., Quantum Computing Researcher, ML Architect..."
-            className="form-input"
-            style={{ flex: 1, padding: '0.75rem' }}
-          />
+      {showDreamInput && (
+        <div className="card glass-panel mb-4" style={{ position: 'relative', animation: 'fadeIn 0.3s ease' }}>
           <button
-            className="btn btn-primary"
-            onClick={() => dreamJob && onSelectTarget(dreamJob)}
-            disabled={!dreamJob}
+            onClick={() => setShowDreamInput(false)}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
           >
-            Set as Goal
+            ✕
           </button>
+          <h3 className="mb-2">✨ Set Your Dream Goal</h3>
+          <p className="text-muted mb-2">Enter any career path to generate a personalized roadmap.</p>
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={dreamJob}
+              onChange={(e) => setDreamJob(e.target.value)}
+              placeholder="e.g., Quantum Computing Researcher, ML Architect..."
+              className="form-input"
+              style={{ flex: 1, padding: '0.75rem' }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={() => dreamJob && onSelectTarget(dreamJob)}
+              disabled={!dreamJob}
+            >
+              Set as Goal
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid-2">
         {jobs.length === 0 ? (
