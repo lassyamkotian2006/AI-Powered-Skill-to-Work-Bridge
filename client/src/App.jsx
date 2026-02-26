@@ -32,6 +32,24 @@ function App() {
     checkAuth()
   }, [])
 
+  // Auto-save interests with debounce
+  useEffect(() => {
+    if (!user) return
+    const timer = setTimeout(async () => {
+      try {
+        await fetch(`${API_URL}/auth/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ interests }),
+          credentials: 'include'
+        })
+        loadDashboardData()
+      } catch (err) {
+        console.error('Auto-save error:', err)
+      }
+    }, 1000) // 1 second debounce
+    return () => clearTimeout(timer)
+  }, [interests, user])
   const checkAuth = async () => {
     try {
       const res = await fetch(`${API_URL}/auth/user`, { credentials: 'include' })
@@ -651,9 +669,9 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
 
   // Code quality signals based on skills
   const codeQualitySignals = skills.length > 0 ? [
-    { label: 'Project Completeness', status: skills.length >= 5 ? 'good' : 'neutral', icon: '📦' },
-    { label: 'Tech Diversity', status: categories.length >= 3 ? 'good' : 'neutral', icon: '🎨' },
-    { label: 'Modern Stack', status: skills.some(s => ['React', 'TypeScript', 'Docker'].includes(s.name)) ? 'good' : 'improve', icon: '⚡' },
+    { label: 'Project Completeness', status: skills.length >= 5 ? 'good' : 'neutral', icon: '' },
+    { label: 'Tech Diversity', status: categories.length >= 3 ? 'good' : 'neutral', icon: '' },
+    { label: 'Modern Stack', status: skills.some(s => ['React', 'TypeScript', 'Docker'].includes(s.name)) ? 'good' : 'improve', icon: '' },
   ] : []
 
   return (
@@ -664,7 +682,7 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
           <p className="text-muted">{skills.length} skills detected from your repositories</p>
           {skills.length > 0 && (
             <span className="how-calculated">
-              ℹ️ How was this calculated?
+              How was this calculated?
             </span>
           )}
         </div>
@@ -679,14 +697,14 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
               Analyzing...
             </>
           ) : (
-            <>🔎 Analyze Repos</>
+            <>Analyze Repos</>
           )}
         </button>
       </div>
 
       {skills.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-icon">🔎</div>
+          <div className="empty-icon">...</div>
           <h3>No skills analyzed yet</h3>
           <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
         </div>
@@ -767,14 +785,14 @@ function EnhancedSkillBadge({ skill }) {
 
 function getCategoryIcon(category) {
   const icons = {
-    language: '💻',
-    framework: '⚡',
-    database: '🗄️',
-    tool: '🔧',
-    cloud: '☁️',
-    concept: '💡'
+    language: '',
+    framework: '',
+    database: '',
+    tool: '',
+    cloud: '',
+    concept: ''
   }
-  return icons[category] || '📦'
+  return icons[category] || ''
 }
 
 // =============================================
@@ -845,7 +863,7 @@ function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
       <div className="grid-2">
         {jobs.length === 0 ? (
           <div className="empty-state card grid-span-2">
-            <div className="empty-icon">💼</div>
+            <div className="empty-icon">...</div>
             <h3>No direct matches yet</h3>
             <p className="text-muted">Analyze your skills to see your match score!</p>
           </div>
@@ -949,16 +967,16 @@ function RoleSimulationModal({ role, onClose }) {
 
         <div className="modal-body">
           <div className="role-section">
-            <h4>📋 Daily Tasks</h4>
+            <h4>Daily Tasks</h4>
             <ul className="role-list">
               {roleData.dailyTasks.map((task, i) => (
-                <li key={i}>📌 {task}</li>
+                <li key={i}>{task}</li>
               ))}
             </ul>
           </div>
 
           <div className="role-section">
-            <h4>🛠️ Common Tools</h4>
+            <h4>Common Tools</h4>
             <div className="flex flex-wrap gap-1">
               {roleData.tools.map((tool, i) => (
                 <span key={i} className="tool-tag">{tool}</span>
@@ -967,10 +985,10 @@ function RoleSimulationModal({ role, onClose }) {
           </div>
 
           <div className="role-section">
-            <h4>🎯 Key Responsibilities</h4>
+            <h4>Key Responsibilities</h4>
             <ul className="role-list">
               {roleData.responsibilities.map((resp, i) => (
-                <li key={i}>▸ {resp}</li>
+                <li key={i}>{resp}</li>
               ))}
             </ul>
           </div>
@@ -1069,7 +1087,7 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
 
       {!targetRole ? (
         <div className="empty-state card">
-          <div className="empty-icon">📍</div>
+          <div className="empty-icon">...</div>
           <h3>Select a target role first</h3>
           <p className="text-muted">Go to the "Jobs" tab and select a role as your target to generate an AI learning path.</p>
         </div>
@@ -1080,7 +1098,7 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
         </div>
       ) : learningPath[0]?.title === 'Error' ? (
         <div className="empty-state card">
-          <div className="empty-icon">⚠️</div>
+          <div className="empty-icon">X</div>
           <h3>Failed to load roadmap</h3>
           <p className="text-muted">{learningPath[0].items[0]}</p>
           <button className="btn btn-primary mt-2" onClick={() => setActiveTab('jobs')}>
@@ -1100,7 +1118,7 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
               <ul className="learning-list-modern">
                 {section.items.map((item, j) => (
                   <li key={j} className="mb-1">
-                    <span className="bullet">⚡</span> {item}
+                    {item}
                   </li>
                 ))}
               </ul>
@@ -1126,25 +1144,25 @@ function EnhancedLearningStep({ step, index }) {
           <div>
             <div className="flex gap-1 mb-1">
               <span className="badge badge-primary">Step {index + 1}</span>
-              {step.projectBased && <span className="project-badge">🔨 Project-Based</span>}
+              {step.projectBased && <span className="project-badge">Project-Based</span>}
             </div>
             <h3>{step.skill}</h3>
             <p className="text-muted">Target: {step.targetLevel} level</p>
           </div>
           <div className="time-badge">
-            ⏱️ {step.estimatedHours}h
+            {step.estimatedHours}h
           </div>
         </div>
 
         {step.neededFor?.length > 0 && (
           <p className="text-muted mt-2" style={{ fontSize: '0.8rem' }}>
-            📍 Needed for: {step.neededFor.join(', ')}
+            Needed for: {step.neededFor.join(', ')}
           </p>
         )}
 
         {expanded && (
           <div className="mt-2" style={{ animation: 'fadeIn 0.3s ease' }}>
-            <h4 className="mb-1">📚 Learning Resources:</h4>
+            <h4 className="mb-1">Learning Resources:</h4>
             {(step.resources || step.suggestedResources || []).map((resource, i) => (
               <a
                 key={i}
@@ -1262,13 +1280,13 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
   return (
     <div className="resume-tab">
       <div className="section-header mb-3">
-        <h2>📄 Resume Generator</h2>
+        <h2>Resume Generator</h2>
         <p className="text-muted">Fill in your details • Skills auto-populated from GitHub • AI polishes your resume</p>
       </div>
 
       {/* Personal Info */}
       <div className="card resume-section mb-2">
-        <h3 className="mb-2">👤 Personal Information</h3>
+        <h3 className="mb-2">Personal Information</h3>
         <div className="resume-form-grid">
           <div className="resume-field">
             <label>Full Name *</label>
@@ -1296,7 +1314,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
       {/* Education */}
       <div className="card resume-section mb-2">
         <div className="flex justify-between items-center mb-2">
-          <h3>🎓 Education</h3>
+          <h3>Education</h3>
           <button className="btn-add" onClick={() => addEntry('education')}>+ Add</button>
         </div>
         {formData.education.map((edu, i) => (
@@ -1337,7 +1355,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
       {/* Internships */}
       <div className="card resume-section mb-2">
         <div className="flex justify-between items-center mb-2">
-          <h3>💼 Internships</h3>
+          <h3>Internships</h3>
           <button className="btn-add" onClick={() => addEntry('internships')}>+ Add</button>
         </div>
         {formData.internships.map((int, i) => (
@@ -1374,7 +1392,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
       {/* Projects */}
       <div className="card resume-section mb-2">
         <div className="flex justify-between items-center mb-2">
-          <h3>🚀 Projects</h3>
+          <h3>Projects</h3>
           <button className="btn-add" onClick={() => addEntry('projects')}>+ Add</button>
         </div>
         {formData.projects.map((proj, i) => (
@@ -1403,7 +1421,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
       {/* Co-curricular Activities */}
       <div className="card resume-section mb-2">
         <div className="flex justify-between items-center mb-2">
-          <h3>🏆 Co-curricular Activities</h3>
+          <h3>Co-curricular Activities</h3>
           <button className="btn-add" onClick={() => addEntry('cocurricular')}>+ Add</button>
         </div>
         {formData.cocurricular.map((act, i) => (
@@ -1432,7 +1450,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
       {/* Certifications */}
       <div className="card resume-section mb-2">
         <div className="flex justify-between items-center mb-2">
-          <h3>📜 Certifications</h3>
+          <h3>Certifications</h3>
           <button className="btn-add" onClick={() => addEntry('certifications')}>+ Add</button>
         </div>
         {formData.certifications.map((cert, i) => (
@@ -1450,7 +1468,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
 
       {/* Skills (auto-populated) */}
       <div className="card resume-section mb-2">
-        <h3 className="mb-2">🛠️ Technical Skills {skills.length > 0 && <span className="badge badge-success">Auto-detected from GitHub</span>}</h3>
+        <h3 className="mb-2">Technical Skills {skills.length > 0 && <span className="badge badge-success">Auto-detected from GitHub</span>}</h3>
         {skills.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {skills.map((skill, i) => (
@@ -1474,7 +1492,7 @@ function ResumeTab({ skills, user, setResumeData, generating, setGenerating, set
             AI is generating your resume...
           </>
         ) : (
-          <>✨ Generate Resume</>
+          <>Generate Resume</>
         )}
       </button>
     </div>
@@ -1524,7 +1542,7 @@ function ResumeFullPage({ resume, user, onBack }) {
     <div className="resume-full-page">
       <div className="resume-full-page-toolbar no-print">
         <button className="btn btn-secondary" onClick={onBack}>
-          ✏️ Edit
+          Edit
         </button>
         <h3>Your Resume</h3>
         <p className="no-print" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Tip: Select "Save as PDF" in the print destination.</p>
@@ -1540,11 +1558,11 @@ function ResumeFullPage({ resume, user, onBack }) {
                 Downloading...
               </>
             ) : (
-              <>📄 Download PDF</>
+              <>Download PDF</>
             )}
           </button>
           <button className="btn btn-secondary no-print" onClick={() => window.print()}>
-            🖨️ Print
+            Print
           </button>
         </div>
       </div>
@@ -1721,13 +1739,13 @@ function AIAssistant({ show, onToggle, skills, jobs, interests }) {
   return (
     <>
       <button className="ai-assistant-toggle" onClick={onToggle}>
-        {show ? '✕' : '🤖'}
+        {show ? '✕' : 'AI'}
       </button>
 
       {show && (
         <div className="ai-assistant-panel">
           <div className="ai-panel-header">
-            <span>🤖</span>
+            <span>AI</span>
             <h4>AI Career Assistant</h4>
           </div>
 
