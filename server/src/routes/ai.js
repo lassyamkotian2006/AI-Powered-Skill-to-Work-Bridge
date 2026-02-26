@@ -25,7 +25,7 @@ router.post('/career-advice', requireAuth, async (req, res) => {
         // Get user skills
         let userSkills = [];
         try {
-            const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+            const dbUser = await dbService.getUserById(req.session.user.id);
             if (dbUser) {
                 userSkills = await dbService.getUserSkills(dbUser.id);
             }

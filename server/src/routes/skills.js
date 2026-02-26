@@ -75,7 +75,7 @@ router.post('/analyze', requireAuth, async (req, res) => {
             }
 
             // Save to database if user exists
-            const dbUser = await dbService.getUserByGithubId(user.id);
+            const dbUser = await dbService.getUserById(user.id);
             if (dbUser && matchedSkills.length > 0) {
                 savedSkills = await dbService.saveUserSkills(dbUser.id, matchedSkills);
                 console.log(`💾 Saved ${savedSkills.length} skills to database`);
@@ -125,7 +125,7 @@ router.post('/analyze', requireAuth, async (req, res) => {
  */
 router.get('/', requireAuth, async (req, res) => {
     try {
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+        const dbUser = await dbService.getUserById(req.session.user.id);
 
         if (!dbUser) {
             return res.status(404).json({
@@ -208,7 +208,7 @@ router.post('/sync', requireAuth, async (req, res) => {
  */
 router.get('/summary', requireAuth, async (req, res) => {
     try {
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+        const dbUser = await dbService.getUserById(req.session.user.id);
         if (!dbUser) {
             return res.status(404).json({ error: 'User not found' });
         }

@@ -65,6 +65,22 @@ async function getUserByGithubId(githubId) {
 }
 
 /**
+ * Get user by internal database ID (UUID)
+ */
+async function getUserById(id) {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+}
+
+/**
  * Get user by email
  */
 async function getUserByEmail(email) {
@@ -519,6 +535,7 @@ async function getUserLearningPath(userId) {
 module.exports = {
     // User operations
     saveUser,
+    getUserById,
     getUserByGithubId,
     getUserByEmail,
     createUser,

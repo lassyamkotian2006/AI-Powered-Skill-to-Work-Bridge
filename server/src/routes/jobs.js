@@ -23,7 +23,7 @@ const router = express.Router();
 router.get('/recommendations', requireAuth, async (req, res) => {
     try {
         // 1. Get user skills from database
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+        const dbUser = await dbService.getUserById(req.session.user.id);
         if (!dbUser) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -357,7 +357,7 @@ router.get('/:slug', async (req, res) => {
  */
 router.get('/career/path', requireAuth, async (req, res) => {
     try {
-        const dbUser = await dbService.getUserByGithubId(req.session.user.id);
+        const dbUser = await dbService.getUserById(req.session.user.id);
         if (!dbUser) {
             return res.status(404).json({ error: 'User not found' });
         }
