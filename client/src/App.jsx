@@ -423,7 +423,7 @@ function LoginPage({ onLogin }) {
       <div className="login-card-modern">
         <div className="login-header-branded">
           <div className="login-logo-orb">
-            <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'white' }}>auto_awesome</span>
+            <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'white' }}>terminal</span>
           </div>
           <h1 className="login-brand-title">Skill-to-Work</h1>
           <p className="login-brand-subtitle">AI-powered career intelligence</p>
@@ -606,7 +606,7 @@ function Header({ user, onLogout }) {
     <header className="header">
       <div className="logo">
         <div className="logo-icon">
-          <span className="material-symbols-outlined" style={{ color: 'white', fontSize: '22px' }}>auto_awesome</span>
+          <span className="material-symbols-outlined" style={{ color: 'white', fontSize: '22px' }}>terminal</span>
         </div>
         <span className="logo-text">SkillBridge</span>
       </div>
