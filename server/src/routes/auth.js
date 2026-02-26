@@ -141,6 +141,7 @@ router.get('/github/callback', async (req, res) => {
 
         req.session.user = {
             id: user.id,
+            githubId: githubUser.id,
             login: user.username || githubUser.login,
             name: user.name || githubUser.name,
             avatarUrl: user.avatar_url || githubUser.avatar_url,
@@ -221,6 +222,7 @@ router.post('/login', async (req, res) => {
         // 4. Success! Create session
         req.session.user = {
             id: user.id,
+            githubId: user.github_id,
             login: user.username,
             name: user.name || user.username,
             avatarUrl: user.avatar_url

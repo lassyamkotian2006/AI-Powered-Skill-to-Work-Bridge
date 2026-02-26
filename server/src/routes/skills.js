@@ -60,12 +60,23 @@ router.post('/analyze', requireAuth, async (req, res) => {
         try {
             const dbSkills = await dbService.getAllSkills();
 
-            // Match extracted skills to database skill IDs
+            // Match extracted skills to database skill IDs or create them
             const matchedSkills = [];
             for (const skill of extractedSkills) {
-                const dbSkill = dbSkills.find(
+                let dbSkill = dbSkills.find(
                     s => s.name.toLowerCase() === skill.name.toLowerCase()
                 );
+
+                // If skill doesn't exist in master list, create it!
+                if (!dbSkill) {
+                    try {
+                        console.log(`✨ Creating new master skill: ${skill.name}`);
+                        dbSkill = await dbService.addSkill(skill.name, skill.category || 'other');
+                    } catch (addErr) {
+                        console.log(`   ⚠️ Failed to create skill ${skill.name}:`, addErr.message);
+                    }
+                }
+
                 if (dbSkill) {
                     matchedSkills.push({
                         ...skill,
@@ -77,8 +88,11 @@ router.post('/analyze', requireAuth, async (req, res) => {
             // Save to database if user exists
             const dbUser = await dbService.getUserById(user.id);
             if (dbUser && matchedSkills.length > 0) {
+                console.log(`💾 Saving ${matchedSkills.length} matched skills to database for user ${dbUser.id}...`);
                 savedSkills = await dbService.saveUserSkills(dbUser.id, matchedSkills);
-                console.log(`💾 Saved ${savedSkills.length} skills to database`);
+                console.log(`✅ Saved ${savedSkills.length} skills to database`);
+            } else {
+                console.log(`⚠️ Skip saving: user found? ${!!dbUser}, matched skills: ${matchedSkills.length}`);
             }
         } catch (dbError) {
             console.log('⚠️ Database save skipped:', dbError.message);
@@ -128,6 +142,7 @@ router.get('/', requireAuth, async (req, res) => {
         const dbUser = await dbService.getUserById(req.session.user.id);
 
         if (!dbUser) {
+            console.error(`❌ User not found in database for session ID: ${req.session.user.id}`);
             return res.status(404).json({
                 error: 'User not found',
                 message: 'Please analyze your skills first using POST /skills/analyze'
@@ -135,6 +150,7 @@ router.get('/', requireAuth, async (req, res) => {
         }
 
         const skills = await dbService.getUserSkills(dbUser.id);
+        console.log(`📊 Job Recommendations: Found ${skills.length} skills for user ${dbUser.id}`);
 
         // If DB is empty, check session cache to prevent UI disappearance after fresh analysis
         if (skills.length === 0 && req.session.extractedSkills) {
@@ -175,12 +191,14 @@ router.post('/sync', requireAuth, async (req, res) => {
 
         // Save user to database
         const dbUser = await dbService.saveUser({
-            id: user.id,
+            id: user.githubId, // Using the GitHub ID for the upsert
             login: user.login,
             name: user.name,
             avatar_url: user.avatarUrl,
             html_url: user.profileUrl
         }, accessToken);
+
+        console.log(`👤 Sync: Successfully synced GitHub user ${user.login} (${user.githubId})`);
 
         // Get and save repositories
         const repos = await githubService.getUserRepos(accessToken);
@@ -208,12 +226,20 @@ router.post('/sync', requireAuth, async (req, res) => {
  */
 router.get('/summary', requireAuth, async (req, res) => {
     try {
-        const dbUser = await dbService.getUserById(req.session.user.id);
+        const userId = req.session.user.id;
+        console.log(`\n📊 Starting skill summary for user ID: ${userId}`);
+
+        const dbUser = await dbService.getUserById(userId);
+
         if (!dbUser) {
+            console.error(`❌ User not found for ID: ${userId}`);
             return res.status(404).json({ error: 'User not found' });
         }
 
+        console.log(`👤 Found user: ${dbUser.username} (${dbUser.id})`);
+
         const skills = await dbService.getUserSkills(dbUser.id);
+        console.log(`📊 Found ${skills.length} skills for user`);
 
         // Group by category
         const byCategory = {};
@@ -222,6 +248,7 @@ router.get('/summary', requireAuth, async (req, res) => {
             if (!byCategory[category]) byCategory[category] = [];
             byCategory[category].push(skill.skills?.name);
         }
+        console.log(`Categorized skills into ${Object.keys(byCategory).length} categories`);
 
         // Group by level
         const byLevel = { expert: [], advanced: [], intermediate: [], beginner: [] };

@@ -25,17 +25,20 @@ router.get('/recommendations', requireAuth, async (req, res) => {
         // 1. Get user skills from database
         const dbUser = await dbService.getUserById(req.session.user.id);
         if (!dbUser) {
+            console.error(`❌ Job Recommendations: User not found in database for session ID: ${req.session.user.id}`);
             return res.status(404).json({ error: 'User not found' });
         }
 
         const userSkills = await dbService.getUserSkills(dbUser.id);
+        console.log(`📊 Job Recommendations: Found ${userSkills.length} skills for user ${dbUser.id}`);
 
         // 2. Get all available job roles
         let jobRoles = await dbService.getJobRoles();
-
-        // If no roles in DB, use hardcoded ones as fallback
         if (!jobRoles || jobRoles.length === 0) {
+            console.log('⚠️ Job Recommendations: No job roles in DB, using hardcoded fallback');
             jobRoles = getHardcodedJobRoles();
+        } else {
+            console.log(`💼 Job Recommendations: Loaded ${jobRoles.length} job roles from database`);
         }
 
         // 3. Get interests from profile
