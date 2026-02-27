@@ -79,39 +79,84 @@ router.get('/path', requireAuth, async (req, res) => {
         let matchPercentageFromAI = 0;
 
         if (aiData && aiData.success) {
-            // Use AI generated path
+            // Tier 1: Use Python AI microservice generated path
             parsedPath = parseAIRoadmap(aiData.learning_path);
             matchPercentageFromAI = aiData.match_percentage;
-            console.log(`✅ AI Learning path generated with ${aiData.match_percentage}% match\n`);
-            // FALLBACK: Generate structured roadmap from skill gaps
-            console.log('⚠️ Using fallback roadmap generator');
-            const jobRoles = await dbService.getJobRoles();
-            const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole) ||
-                (jobMatcher.getHardcodedJobRoles()).find(r => r.title === targetRole);
+            console.log(`Tier 1 (Python AI): Learning path generated with ${aiData.match_percentage}% match`);
+        } else {
+            // Tier 2: Try Groq AI for structured learning path
+            console.log('Tier 2: Attempting Groq AI learning path...');
+            const groqPath = await aiService.generateAILearningPath(skillsForAI, targetRole);
 
-            const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
-            matchPercentageFromAI = match.score;
+            if (groqPath) {
+                parsedPath = [];
 
-            parsedPath = [
-                {
-                    title: 'Current Skill Gaps',
-                    items: match.missingSkills.length > 0
-                        ? match.missingSkills.map(s => `${s.name} (${s.importance})`)
-                        : ['No major gaps detected! Focus on deep diving into your existing stack.']
-                },
-                {
-                    title: 'Recommended Roadmap',
-                    items: match.roadmap.steps.map(s => `Master ${s.skill} to ${s.targetLevel} level (~${s.estimatedHours}h)`)
-                },
-                {
-                    title: 'Next Steps',
-                    items: [
-                        `Focus on ${match.missingSkills[0]?.name || 'advanced projects'} first.`,
-                        'Build a portfolio project demonstrating these new skills.',
-                        'Review official documentation and community tutorials.'
-                    ]
+                if (groqPath.missing_skills && groqPath.missing_skills.length > 0) {
+                    parsedPath.push({
+                        title: 'Missing Skills',
+                        items: groqPath.missing_skills
+                    });
                 }
-            ];
+
+                if (groqPath.technologies_to_learn && groqPath.technologies_to_learn.length > 0) {
+                    parsedPath.push({
+                        title: 'Technologies to Learn',
+                        items: groqPath.technologies_to_learn
+                    });
+                }
+
+                if (groqPath.step_by_step_plan && groqPath.step_by_step_plan.length > 0) {
+                    parsedPath.push({
+                        title: 'Step-by-Step Roadmap',
+                        items: groqPath.step_by_step_plan
+                    });
+                }
+
+                if (groqPath.recommended_projects && groqPath.recommended_projects.length > 0) {
+                    parsedPath.push({
+                        title: 'Recommended Projects',
+                        items: groqPath.recommended_projects
+                    });
+                }
+
+                // Calculate match from jobMatcher for the progress bar
+                const jobRoles = await dbService.getJobRoles();
+                const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole) ||
+                    (jobMatcher.getHardcodedJobRoles()).find(r => r.title === targetRole);
+                const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
+                matchPercentageFromAI = match.score;
+                console.log(`Tier 2 (Groq AI): Learning path generated with ${parsedPath.length} sections`);
+            } else {
+                // Tier 3: Basic fallback from skill-gap analysis
+                console.log('Tier 3: Using jobMatcher fallback');
+                const jobRoles = await dbService.getJobRoles();
+                const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole) ||
+                    (jobMatcher.getHardcodedJobRoles()).find(r => r.title === targetRole);
+
+                const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
+                matchPercentageFromAI = match.score;
+
+                parsedPath = [
+                    {
+                        title: 'Current Skill Gaps',
+                        items: match.missingSkills.length > 0
+                            ? match.missingSkills.map(s => `${s.name} (${s.importance})`)
+                            : ['No major gaps detected! Focus on deep diving into your existing stack.']
+                    },
+                    {
+                        title: 'Recommended Roadmap',
+                        items: match.roadmap.steps.map(s => `Master ${s.skill} to ${s.targetLevel} level (~${s.estimatedHours}h)`)
+                    },
+                    {
+                        title: 'Next Steps',
+                        items: [
+                            `Focus on ${match.missingSkills[0]?.name || 'advanced projects'} first.`,
+                            'Build a portfolio project demonstrating these new skills.',
+                            'Review official documentation and community tutorials.'
+                        ]
+                    }
+                ];
+            }
         }
 
         const responseData = {

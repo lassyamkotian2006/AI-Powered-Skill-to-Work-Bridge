@@ -81,11 +81,23 @@ router.get('/recommendations', requireAuth, async (req, res) => {
         // Get skill gaps
         const skillGaps = jobMatcher.getSkillGaps(topMatches);
 
-        console.log(`✅ Found ${topMatches.length} job matches\n`);
+        // 5. Get AI-powered role suggestions (non-blocking)
+        let aiSuggestedRoles = [];
+        try {
+            const aiRoles = await aiService.suggestJobRolesWithAI(skillsForMatching, userInterests);
+            if (aiRoles && Array.isArray(aiRoles)) {
+                aiSuggestedRoles = aiRoles;
+            }
+        } catch (err) {
+            console.warn('AI role suggestion skipped:', err.message);
+        }
+
+        console.log(`Found ${topMatches.length} job matches, ${aiSuggestedRoles.length} AI-suggested roles\n`);
 
         res.json({
             success: true,
             totalSkills: userSkills.length,
+            aiSuggestedRoles,
             recommendations: topMatches.map(m => ({
                 title: m.jobTitle,
                 slug: m.jobSlug,

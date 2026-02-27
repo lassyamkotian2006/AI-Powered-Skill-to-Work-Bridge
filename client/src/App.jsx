@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [skills, setSkills] = useState([])
   const [jobs, setJobs] = useState([])
+  const [aiSuggestedRoles, setAiSuggestedRoles] = useState([])
   const [learningPath, setLearningPath] = useState([])
   const [analyzing, setAnalyzing] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
@@ -88,6 +89,7 @@ function App() {
 
       if (skillsData.skills && skillsData.skills.length > 0) setSkills(skillsData.skills)
       if (jobsData.recommendations) setJobs(jobsData.recommendations)
+      if (jobsData.aiSuggestedRoles) setAiSuggestedRoles(jobsData.aiSuggestedRoles)
       if (learningData.learningPath) {
         setLearningPath(learningData.learningPath)
         if (learningData.summary?.matchPercentage) {
@@ -134,7 +136,7 @@ function App() {
       const data = await res.json()
       if (data.success) {
         setLearningPath(data.learningPath)
-        setMatchPercentage(data.summary.matchPercentage)
+        setMatchPercentage(data.summary?.matchPercentage || 0)
       } else {
         setLearningPath([{ title: 'Error', items: ['Failed to load learning path. Please try again.'] }])
       }
@@ -210,6 +212,7 @@ function App() {
         {activeTab === 'jobs' && (
           <JobsTab
             jobs={jobs}
+            aiSuggestedRoles={aiSuggestedRoles}
             onSelectTarget={handleSelectTarget}
             activeTargetRole={targetRole}
           />
@@ -220,6 +223,7 @@ function App() {
             learningPath={learningPath}
             matchPercentage={matchPercentage}
             targetRole={targetRole}
+            setActiveTab={setActiveTab}
           />
         )}
 
@@ -260,6 +264,8 @@ function LoginPage({ onLogin }) {
   const [loading, setLoading] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [isResetFlow, setIsResetFlow] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -453,12 +459,20 @@ function LoginPage({ onLogin }) {
                 <div className="input-field-modern">
                   <span className="material-symbols-outlined input-icon-modern">lock</span>
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -517,12 +531,20 @@ function LoginPage({ onLogin }) {
                   <div className="input-field-modern">
                     <span className="material-symbols-outlined input-icon-modern">lock</span>
                     <input
-                      type="password"
+                      type={showNewPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required={mode === 'otp' && isResetFlow}
                     />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      tabIndex={-1}
+                    >
+                      <span className="material-symbols-outlined">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -863,7 +885,7 @@ function getCategoryIcon(category) {
 // JOBS TAB - ENHANCED
 // =============================================
 
-function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
+function JobsTab({ jobs, aiSuggestedRoles = [], onSelectTarget, activeTargetRole }) {
   const [dreamJob, setDreamJob] = useState('')
   const [selectedRoleForSim, setSelectedRoleForSim] = useState(null)
   const [showDreamInput, setShowDreamInput] = useState(false)
@@ -920,6 +942,34 @@ function JobsTab({ jobs, onSelectTarget, activeTargetRole }) {
             >
               Set as Goal
             </button>
+          </div>
+        </div>
+      )}
+
+      {aiSuggestedRoles.length > 0 && (
+        <div className="card glass-panel mb-4" style={{ animation: 'fadeIn 0.3s ease' }}>
+          <div className="flex items-center gap-1 mb-2">
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--teal)' }}>auto_awesome</span>
+            <h3 style={{ margin: 0 }}>Roles For You</h3>
+            <span className="text-muted" style={{ fontSize: '0.75rem', marginLeft: '0.5rem' }}>AI-suggested based on your skills</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {aiSuggestedRoles.map((role, i) => (
+              <button
+                key={i}
+                className={`btn ${activeTargetRole === role ? 'btn-primary' : 'btn-ghost'}`}
+                style={{
+                  fontSize: '0.85rem',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '2rem',
+                  border: activeTargetRole === role ? 'none' : '1px solid var(--border)',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => onSelectTarget(role)}
+              >
+                {role}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -1117,7 +1167,7 @@ function getRoleSimulationData(title) {
 // LEARNING TAB - ENHANCED
 // =============================================
 
-function LearningTab({ learningPath, matchPercentage, targetRole }) {
+function LearningTab({ learningPath, matchPercentage, targetRole, setActiveTab }) {
   return (
     <div className="learning-tab">
       <div className="section-header mb-4">
@@ -1175,7 +1225,11 @@ function LearningTab({ learningPath, matchPercentage, targetRole }) {
             <div key={i} className="card mb-3 glass-panel">
               <h3 className="mb-2 flex items-center gap-1">
                 <span className="material-symbols-outlined" style={{ color: 'var(--purple-light)', fontSize: '20px' }}>
-                  {section.title.toLowerCase().includes('roadmap') ? 'route' : 'school'}
+                  {section.title.toLowerCase().includes('roadmap') || section.title.toLowerCase().includes('step') ? 'route'
+                    : section.title.toLowerCase().includes('missing') ? 'error_outline'
+                      : section.title.toLowerCase().includes('technolog') ? 'memory'
+                        : section.title.toLowerCase().includes('project') ? 'code_blocks'
+                          : 'school'}
                 </span>
                 {section.title}
               </h3>

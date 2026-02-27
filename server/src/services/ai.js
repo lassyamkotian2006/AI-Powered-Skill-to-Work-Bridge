@@ -389,6 +389,151 @@ async function getCareerAdvice(userSkills, interests, currentMatches) {
 }
 
 // =============================================
+// AI-POWERED JOB ROLE SUGGESTIONS
+// =============================================
+
+/**
+ * Suggest specialized job roles using AI based on user skills and interests.
+ * Uses a structured prompt to get 5 unique, specific role names.
+ * @param {Array} userSkills - Array of skill objects with name and level
+ * @param {string} interests - User's stated career interests
+ * @returns {Array|null} Array of role name strings, or null on failure
+ */
+async function suggestJobRolesWithAI(userSkills, interests) {
+    if (!groq) {
+        return null;
+    }
+
+    const skillList = userSkills.map(s => `- ${s.name} (${s.level || 'intermediate'})`).join('\n');
+
+    const prompt = `You are an expert AI career advisor.
+
+Carefully analyze the user's technical skills and career interest.
+
+User Skills:
+${skillList}
+
+${interests ? `User Career Interest:\n${interests}\n` : ''}
+Your task:
+1. Identify what type of professional this person can become based ONLY on the skills provided.
+2. Suggest 5 specific and specialized job roles that directly match the skills.
+3. Avoid generic roles like "Software Engineer" unless clearly justified by skills.
+4. Make the roles specific (example: "React Frontend Developer", "Spring Boot Backend Developer", "Computer Vision Engineer").
+5. Return ONLY a clean JSON array of job role names.
+
+Example output format:
+[
+  "React Frontend Developer",
+  "Node.js API Developer",
+  "MongoDB Backend Engineer",
+  "Full Stack JavaScript Developer",
+  "Cloud Deployment Engineer"
+]
+
+Do not include explanations.
+Do not include extra text.
+Return only JSON.`;
+
+    try {
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.1-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 300
+        });
+
+        const content = response.choices[0].message.content;
+        // Parse JSON array from response
+        const jsonMatch = content.match(/\[\s*[\s\S]*?\]/);
+        if (jsonMatch) {
+            const roles = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(roles) && roles.length > 0) {
+                console.log('AI suggested roles:', roles);
+                return roles.slice(0, 5);
+            }
+        }
+        console.warn('Could not parse AI role suggestions from response:', content);
+        return null;
+    } catch (error) {
+        console.error('AI role suggestion error:', error.message);
+        return null;
+    }
+}
+
+// =============================================
+// AI-POWERED LEARNING PATH
+// =============================================
+
+/**
+ * Generate a structured learning path using AI based on user skills and target role.
+ * @param {Array} userSkills - Array of skill objects with name and level
+ * @param {string} targetRole - The target job role
+ * @returns {Object|null} Structured learning path or null on failure
+ */
+async function generateAILearningPath(userSkills, targetRole) {
+    if (!groq) {
+        return null;
+    }
+
+    const skillList = userSkills.map(s => `- ${s.name} (${s.level || 'intermediate'})`).join('\n');
+
+    const prompt = `You are an AI career mentor.
+
+Create a personalized learning roadmap.
+
+User Current Skills:
+${skillList}
+
+Target Job Role:
+${targetRole}
+
+Instructions:
+1. Identify missing skills required for this role.
+2. Suggest technologies and tools to learn.
+3. Create a step-by-step roadmap from beginner to advanced.
+4. Suggest 3 practical projects to build.
+5. Keep it realistic and structured.
+
+Return ONLY a valid JSON object in this exact format:
+
+{
+  "missing_skills": [],
+  "technologies_to_learn": [],
+  "step_by_step_plan": [],
+  "recommended_projects": []
+}
+
+Do not include explanations.
+Do not include text outside JSON.
+Return valid JSON only.`;
+
+    try {
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.1-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 1000
+        });
+
+        const content = response.choices[0].message.content;
+        // Parse JSON object from response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.missing_skills || parsed.step_by_step_plan) {
+                console.log('AI learning path generated successfully');
+                return parsed;
+            }
+        }
+        console.warn('Could not parse AI learning path from response:', content);
+        return null;
+    } catch (error) {
+        console.error('AI learning path error:', error.message);
+        return null;
+    }
+}
+
+// =============================================
 // EXPORTS
 // =============================================
 
@@ -397,5 +542,7 @@ module.exports = {
     analyzeAllRepos,
     generateJobRecommendation,
     generateLearningAdvice,
-    getCareerAdvice
+    getCareerAdvice,
+    suggestJobRolesWithAI,
+    generateAILearningPath
 };
