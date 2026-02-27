@@ -34,14 +34,15 @@
   --error: #EF4444;
   --info: #3B82F6;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(255, 255, 255, 0.15);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-glow: rgba(255, 255, 255, 0.12);
 
-  --radius: 1rem;
-  --radius-sm: 0.6rem;
-  --radius-xs: 0.4rem;
+  --radius: 0.75rem;
+  --radius-btn: 0.5rem;
+  --radius-sm: 0.5rem;
+  --radius-xs: 0.35rem;
 
-  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 20px var(--purple-glow);
   --shadow-teal: 0 0 20px var(--teal-glow);
 
@@ -359,15 +360,22 @@ h4 {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  justify-content: center;
+  height: 3rem;
+  padding: 0 1.5rem;
+  border-radius: var(--radius-btn);
+  font-size: 0.9rem;
   font-weight: 600;
   border: none;
   cursor: pointer;
   transition: all var(--transition);
   font-family: inherit;
+  gap: 0.5rem;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--purple-light);
+  outline-offset: 2px;
 }
 
 .btn-primary {
@@ -1095,10 +1103,11 @@ h4 {
 
 .input-field-modern input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  height: 3rem;
+  padding: 0 1rem 0 2.75rem;
   background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
   color: #c9d1d9;
   font-size: 0.9rem;
   font-family: inherit;
@@ -1149,11 +1158,12 @@ h4 {
 
 .btn-signin-modern {
   width: 100%;
-  height: 3.25rem;
+  height: 3rem;
+  padding: 0 1.5rem;
   background: var(--purple);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
@@ -1163,6 +1173,11 @@ h4 {
   gap: 0.75rem;
   margin-top: 1.5rem;
   transition: all 0.2s;
+}
+
+.btn-signin-modern:focus-visible {
+  outline: 2px solid var(--purple-light);
+  outline-offset: 2px;
 }
 
 .btn-signin-modern:hover {
@@ -1194,11 +1209,12 @@ h4 {
 
 .btn-github-auth {
   width: 100%;
-  height: 3.25rem;
+  height: 3rem;
+  padding: 0 1.5rem;
   background: #21262d;
   color: #c9d1d9;
   border: 1px solid #30363d;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -1207,6 +1223,11 @@ h4 {
   justify-content: center;
   gap: 0.75rem;
   transition: all 0.2s;
+}
+
+.btn-github-auth:focus-visible {
+  outline: 2px solid #8b949e;
+  outline-offset: 2px;
 }
 
 .btn-github-auth:hover {
@@ -1333,12 +1354,16 @@ h4 {
 }
 
 .btn-add {
-  padding: 0.35rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 1rem;
   background: var(--purple-10);
   border: 1px solid var(--purple-20);
   color: var(--purple-light);
-  border-radius: var(--radius-xs);
-  font-size: 0.75rem;
+  border-radius: var(--radius-btn);
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1350,12 +1375,17 @@ h4 {
 }
 
 .btn-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 0.75rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: #fca5a5;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-xs);
-  font-size: 0.75rem;
+  border-radius: var(--radius-btn);
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   transition: all var(--transition);
