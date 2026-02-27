@@ -196,26 +196,40 @@ router.post('/register', async (req, res) => {
  */
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`\n🔑 Login attempt for: ${email}`);
 
     try {
         const user = await dbService.getUserByEmail(email);
-        if (!user || !user.password_hash) {
+
+        if (!user) {
+            console.warn(`❌ Login failed: User not found for email ${email}`);
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        if (!user.password_hash) {
+            console.warn(`❌ Login failed: No password hash for user ${email} (Maybe they only use GitHub?)`);
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         // Check if verified (MANDATORY)
+        console.log(`🔍 User verification status: ${user.is_email_verified}, Session OTP verified: ${req.session.otpVerified}`);
         if (!user.is_email_verified && !req.session.otpVerified) {
+            console.warn(`⚠️ Login paused: Email not verified for ${email}`);
             return res.status(401).json({ error: 'Email not verified', needsVerification: true });
         }
 
         // Compare password
         const match = await bcrypt.compare(password, user.password_hash);
+        console.log(`🔐 Password match result: ${match}`);
+
         if (!match) {
+            console.warn(`❌ Login failed: Password mismatch for ${email}`);
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         // If in production and email is not verified, prompt for verification
         if (isProduction && !user.is_email_verified) {
+            console.log(`ℹ️ Production: Prompting for verification for ${email}`);
             return res.json({ needsVerification: true, email: user.email });
         }
 
@@ -315,7 +329,7 @@ function generateState() {
  * POST /auth/otp/send
  * Sends a 6-digit code to the user's email (logged to console)
  */
-router.post('/otp/send', (req, res) => {
+router.post('/otp/send', async (req, res) => {
     console.log('📨 Request to /otp/send:', req.body);
     const { email } = req.body;
 
@@ -325,13 +339,13 @@ router.post('/otp/send', (req, res) => {
     }
 
     try {
-        otpService.generateOTP(email);
+        await otpService.generateOTP(email);
 
         // Store email in session as "pending"
         req.session.pendingEmail = email;
         req.session.otpVerified = false;
 
-        console.log(`✅ OTP generated and stored for ${email}`);
+        console.log(`✅ OTP process initiated for ${email}`);
         res.json({ success: true, message: 'OTP sent successfully' });
     } catch (err) {
         console.error('❌ Error in /otp/send:', err);

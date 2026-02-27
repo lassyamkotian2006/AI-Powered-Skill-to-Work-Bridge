@@ -35,6 +35,7 @@ function App() {
   // Auto-save interests with debounce
   useEffect(() => {
     if (!user) return
+    setIsUpdatingProfile(true)
     const timer = setTimeout(async () => {
       try {
         await fetch(`${API_URL}/auth/profile`, {
@@ -46,6 +47,8 @@ function App() {
         loadDashboardData()
       } catch (err) {
         console.error('Auto-save error:', err)
+      } finally {
+        setIsUpdatingProfile(false)
       }
     }, 1000) // 1 second debounce
     return () => clearTimeout(timer)
@@ -193,15 +196,32 @@ function App() {
             <div className="card glass-panel mb-3">
               <h3 className="mb-2">Set Your Focus</h3>
               <p className="text-muted mb-2">What kind of work are you interested in? (e.g., "Full Stack", "Blockchain", "Cybersecurity")</p>
-              <div className="flex gap-1">
-                <input
-                  type="text"
-                  value={interests}
-                  onChange={(e) => setInterests(e.target.value)}
-                  placeholder="Enter your professional interests..."
-                  className="form-input"
-                  style={{ flex: 1, padding: '0.75rem' }}
-                />
+              <div className="flex gap-1 items-center">
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={interests}
+                    onChange={(e) => setInterests(e.target.value)}
+                    placeholder="Enter your professional interests..."
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.75rem', paddingRight: '100px' }}
+                  />
+                  {isUpdatingProfile && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        right: '1rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.75rem',
+                        color: 'var(--teal)',
+                        fontWeight: 500
+                      }}
+                    >
+                      Saving...
+                    </span>
+                  )}
+                </div>
                 <button
                   className="btn btn-primary"
                   onClick={async () => {
@@ -213,7 +233,6 @@ function App() {
                         body: JSON.stringify({ interests }),
                         credentials: 'include'
                       })
-                      // No alert needed for better UX, just reload data
                       loadDashboardData()
                     } catch (err) {
                       console.error('Update error:', err)
@@ -223,7 +242,7 @@ function App() {
                   }}
                   disabled={isUpdatingProfile}
                 >
-                  {isUpdatingProfile ? 'Saving...' : 'Save'}
+                  Save
                 </button>
               </div>
             </div>
@@ -669,9 +688,9 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
 
   // Code quality signals based on skills
   const codeQualitySignals = skills.length > 0 ? [
-    { label: 'Project Completeness', status: skills.length >= 5 ? 'good' : 'neutral', icon: '' },
-    { label: 'Tech Diversity', status: categories.length >= 3 ? 'good' : 'neutral', icon: '' },
-    { label: 'Modern Stack', status: skills.some(s => ['React', 'TypeScript', 'Docker'].includes(s.name)) ? 'good' : 'improve', icon: '' },
+    { label: 'Project Completeness', status: skills.length >= 5 ? 'good' : 'neutral', icon: <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>verified</span> },
+    { label: 'Tech Diversity', status: categories.length >= 3 ? 'good' : 'neutral', icon: <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>category</span> },
+    { label: 'Modern Stack', status: skills.some(s => ['React', 'TypeScript', 'Docker'].includes(s.name)) ? 'good' : 'improve', icon: <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>rocket_launch</span> },
   ] : []
 
   return (
@@ -785,14 +804,14 @@ function EnhancedSkillBadge({ skill }) {
 
 function getCategoryIcon(category) {
   const icons = {
-    language: '',
-    framework: '',
-    database: '',
-    tool: '',
-    cloud: '',
-    concept: ''
+    language: <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>code</span>,
+    framework: <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>architecture</span>,
+    database: <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>database</span>,
+    tool: <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>build</span>,
+    cloud: <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>cloud</span>,
+    concept: <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>psychology</span>
   }
-  return icons[category] || ''
+  return icons[category] || <span className="material-symbols-outlined" style={{ fontSize: '20px', verticalAlign: 'middle', marginRight: '4px' }}>extension</span>
 }
 
 // =============================================

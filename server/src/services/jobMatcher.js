@@ -544,6 +544,34 @@ function getHardcodedJobRoles() {
                 { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Product Roadmap', category: 'concept' } },
                 { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Jira', category: 'tool' } }
             ]
+        },
+        {
+            id: '8', title: 'Data Analyst', slug: 'data-analyst',
+            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 85000, demand_score: 80,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Python', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'SQL', category: 'language' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Tableau', category: 'tool' } },
+                { importance: 'preferred', min_proficiency: 'beginner', skills: { name: 'Excel', category: 'tool' } }
+            ]
+        },
+        {
+            id: '9', title: 'Technical Writer', slug: 'technical-writer',
+            experience_level: 'entry', salary_range_min: 50000, salary_range_max: 85000, demand_score: 65,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Technical Writing', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Markdown', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'beginner', skills: { name: 'Git', category: 'tool' } }
+            ]
+        },
+        {
+            id: '10', title: 'Cybersecurity Analyst', slug: 'cybersecurity-analyst',
+            experience_level: 'entry', salary_range_min: 65000, salary_range_max: 110000, demand_score: 85,
+            job_skills: [
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Network Security', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Penetration Testing', category: 'concept' } },
+                { importance: 'required', min_proficiency: 'intermediate', skills: { name: 'Threat Analysis', category: 'concept' } }
+            ]
         }
     ];
 }
