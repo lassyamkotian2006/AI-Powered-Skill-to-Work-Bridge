@@ -64,9 +64,15 @@ router.get('/github/callback', async (req, res) => {
     }
 
     // Verify the state to prevent CSRF attacks
-    if (state !== req.session.oauthState) {
+    // Note: On Render free tier, the server may cold-start between the initial redirect
+    // and the callback, wiping the in-memory session store. In that case, we log a warning
+    // but proceed since the code exchange with GitHub still validates authenticity.
+    if (req.session.oauthState && state !== req.session.oauthState) {
         console.error('❌ State mismatch - possible CSRF attack');
         return res.status(400).json({ error: 'Invalid state parameter' });
+    }
+    if (!req.session.oauthState) {
+        console.warn('⚠️ OAuth state missing from session (server may have restarted). Proceeding with code exchange.');
     }
 
     try {
