@@ -193,63 +193,16 @@ function App() {
       <div className="tab-content">
         {activeTab === 'skills' && (
           <div style={{ marginBottom: '2rem' }}>
-            <div className="card glass-panel mb-3">
-              <h3 className="mb-2">Set Your Focus</h3>
-              <p className="text-muted mb-2">What kind of work are you interested in? (e.g., "Full Stack", "Blockchain", "Cybersecurity")</p>
-              <div className="flex gap-1 items-center">
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={interests}
-                    onChange={(e) => setInterests(e.target.value)}
-                    placeholder="Enter your professional interests..."
-                    className="form-input"
-                    style={{ width: '100%', padding: '0.75rem', paddingRight: '100px' }}
-                  />
-                  {isUpdatingProfile && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        right: '1rem',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        fontSize: '0.75rem',
-                        color: 'var(--teal)',
-                        fontWeight: 500
-                      }}
-                    >
-                      Saving...
-                    </span>
-                  )}
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => {
-                    try {
-                      setIsUpdatingProfile(true)
-                      await fetch(`${API_URL}/auth/profile`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ interests }),
-                        credentials: 'include'
-                      })
-                      loadDashboardData()
-                    } catch (err) {
-                      console.error('Update error:', err)
-                    } finally {
-                      setIsUpdatingProfile(false)
-                    }
-                  }}
-                  disabled={isUpdatingProfile}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
             <SkillsTab
               skills={skills}
               onAnalyze={analyzeSkills}
               analyzing={analyzing}
+              interests={interests}
+              setInterests={setInterests}
+              isUpdatingProfile={isUpdatingProfile}
+              setIsUpdatingProfile={setIsUpdatingProfile}
+              API_URL={API_URL}
+              loadDashboardData={loadDashboardData}
             />
           </div>
         )}
@@ -673,7 +626,18 @@ function NavTabs({ activeTab, setActiveTab, isAnalyzed }) {
 // SKILLS TAB - ENHANCED
 // =============================================
 
-function SkillsTab({ skills, onAnalyze, analyzing }) {
+function SkillsTab({
+  skills,
+  onAnalyze,
+  analyzing,
+  interests,
+  setInterests,
+  isUpdatingProfile,
+  setIsUpdatingProfile,
+  API_URL,
+  loadDashboardData
+}) {
+  const [showFocusInput, setShowFocusInput] = useState(false)
   const groupByCategory = (skills) => {
     return skills.reduce((acc, skill) => {
       const category = skill.category || 'other'
@@ -705,21 +669,102 @@ function SkillsTab({ skills, onAnalyze, analyzing }) {
             </span>
           )}
         </div>
-        <button
-          className={`btn btn-primary ${analyzing ? 'ai-shimmer' : ''}`}
-          onClick={onAnalyze}
-          disabled={analyzing}
-        >
-          {analyzing ? (
-            <>
-              <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div>
-              Analyzing...
-            </>
-          ) : (
-            <>Analyze Repos</>
+        <div className="flex gap-1 items-center">
+          {!showFocusInput && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+              onClick={() => setShowFocusInput(true)}
+            >
+              Set Career Focus
+            </button>
           )}
-        </button>
+          <button
+            className={`btn btn-primary ${analyzing ? 'ai-shimmer' : ''}`}
+            onClick={onAnalyze}
+            disabled={analyzing}
+          >
+            {analyzing ? (
+              <>
+                <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div>
+                Analyzing...
+              </>
+            ) : (
+              <>Analyze Repos</>
+            )}
+          </button>
+        </div>
       </div>
+
+      {showFocusInput && (
+        <div className="card glass-panel mb-4" style={{ position: 'relative', animation: 'fadeIn 0.3s ease' }}>
+          <button
+            onClick={() => setShowFocusInput(false)}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+          >
+            ✕
+          </button>
+          <h3 className="mb-2">Set Your Focus</h3>
+          <p className="text-muted mb-2">What kind of work are you interested in? (e.g., "Full Stack", "Blockchain")</p>
+          <div className="flex gap-1 items-center">
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                type="text"
+                value={interests}
+                onChange={(e) => setInterests(e.target.value)}
+                placeholder="Enter your professional interests..."
+                className="form-input"
+                style={{ width: '100%', padding: '0.75rem', paddingRight: '100px' }}
+              />
+              {isUpdatingProfile && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    right: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '0.75rem',
+                    color: 'var(--teal)',
+                    fontWeight: 500
+                  }}
+                >
+                  Saving...
+                </span>
+              )}
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                try {
+                  setIsUpdatingProfile(true)
+                  await fetch(`${API_URL}/auth/profile`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ interests }),
+                    credentials: 'include'
+                  })
+                  loadDashboardData()
+                } catch (err) {
+                  console.error('Update error:', err)
+                } finally {
+                  setIsUpdatingProfile(false)
+                }
+              }}
+              disabled={isUpdatingProfile}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {skills.length === 0 ? (
         <div className="empty-state card">
