@@ -162,7 +162,8 @@ router.get('/github/callback', async (req, res) => {
  * Register a new user with email and password
  */
 router.post('/register', async (req, res) => {
-    const { email, password, username } = req.body;
+    let { email, password, username } = req.body;
+    email = email?.trim();
 
     if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required' });
@@ -195,7 +196,8 @@ router.post('/register', async (req, res) => {
  * Login with email and password
  */
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    email = email?.trim();
     console.log(`\n🔑 Login attempt for: ${email}`);
 
     try {
@@ -331,7 +333,8 @@ function generateState() {
  */
 router.post('/otp/send', async (req, res) => {
     console.log('📨 Request to /otp/send:', req.body);
-    const { email } = req.body;
+    let { email } = req.body;
+    email = email?.trim();
 
     if (!email || !email.includes('@')) {
         console.error('❌ Invalid email provided:', email);
@@ -359,7 +362,8 @@ router.post('/otp/send', async (req, res) => {
  */
 router.post('/otp/verify', (req, res) => {
     console.log('🔑 Request to /otp/verify:', req.body);
-    const { email, code } = req.body;
+    let { email, code } = req.body;
+    email = email?.trim();
 
     if (!email || !code) {
         return res.status(400).json({ error: 'Email and code are required' });

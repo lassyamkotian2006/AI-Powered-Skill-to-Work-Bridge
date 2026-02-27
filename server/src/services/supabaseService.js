@@ -84,15 +84,19 @@ async function getUserById(id) {
  * Get user by email
  */
 async function getUserByEmail(email) {
-    if (!supabase) return null;
+    if (!supabase || !email) return null;
+    const cleanEmail = email.trim();
 
     const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .ilike('email', cleanEmail)
         .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching user by email:', error);
+        throw error;
+    }
     return data;
 }
 
