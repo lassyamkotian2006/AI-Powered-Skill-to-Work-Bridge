@@ -1,74 +1,100 @@
 const Groq = require("groq-sdk");
 
 const groqClient = new Groq({
-    apiKey: process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 exports.generateJobMatches = async (req, res) => {
-    try {
-        const { skills, interest } = req.body;
+  try {
+    const { skills, interest } = req.body;
 
-        if (!Array.isArray(skills) || skills.length === 0) {
-            return res.status(400).json({ error: "Skills array is required" });
-        }
+    // Validate skills
+    if (!Array.isArray(skills) || skills.length === 0) {
+      return res.status(400).json({
+        error: "Skills array is required",
+      });
+    }
 
-        const prompt = `
-You are a career AI expert.
+    const prompt = `
+You are a professional AI career advisor.
 
-User technical skills:
+User Technical Skills:
 ${skills.join(", ")}
 
-User interest/goal:
+User Career Interest:
 ${interest || "Not specified"}
 
-Task:
-1. Identify the most appropriate professional domain for these skills.
-2. Then list 5 specific job roles within that domain that match these skills.
-3. Be specific, avoid generic roles like "Software Engineer" unless strongly justified.
+Your task:
+1. Identify the most suitable professional domain.
+2. Suggest 5 specific job roles based strictly on the skills.
+3. Avoid overly generic roles unless clearly justified.
+4. Return ONLY valid JSON.
 
-Return ONLY valid JSON in this format:
+Return format:
 
 {
-  "domain": "<domain>",
+  "domain": "Domain Name",
   "roles": [
-    "<role1>",
-    "<role2>",
-    ...
+    "Role 1",
+    "Role 2",
+    "Role 3",
+    "Role 4",
+    "Role 5"
   ]
 }
 `;
 
-        const response = await groqClient.chat.completions.create({
-            model: "llama3-8b-8192",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.8,
-        });
+    const response = await groqClient.chat.completions.create({
+      model: "llama3-8b-8192",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+    });
 
-        const aiOutput = response.choices[0].message.content;
-        console.log("AI RAW OUTPUT:", aiOutput);
+    const aiOutput = response.choices[0].message.content;
+    console.log("AI RAW OUTPUT:", aiOutput);
 
-        let parsed;
-        try {
-            parsed = JSON.parse(aiOutput);
-        } catch (err) {
-            const lines = aiOutput
-                .split("\n")
-                .map(l => l.replace(/^\d+\.\s*/, "").trim())
-                .filter(l => l && !l.includes("{") && !l.includes("}"));
+    let parsed;
 
-            parsed = {
-                domain: lines.shift() || "Unknown",
-                roles: lines.slice(0, 5),
-            };
-        }
+    try {
+      // Extract JSON block safely
+      const jsonMatch = aiOutput.match(/\{[\s\S]*\}/);
 
-        if (!parsed.roles || parsed.roles.length === 0) {
-            return res.status(500).json({ error: "AI could not generate job roles" });
-        }
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON block found");
+      }
+    } catch (error) {
+      console.log("JSON parsing failed. Using fallback roles.");
 
-        return res.json(parsed);
-    } catch (err) {
-        console.error("Job matching error:", err);
-        return res.status(500).json({ error: "Server error in job matching" });
+      parsed = {
+        domain: "General Software Development",
+        roles: [
+          "Software Developer",
+          "Application Developer",
+          "Web Developer",
+          "Backend Developer",
+          "Frontend Developer",
+        ],
+      };
     }
+
+    // Safety check
+    if (!parsed.roles || parsed.roles.length === 0) {
+      parsed.roles = [
+        "Software Developer",
+        "Application Developer",
+        "Web Developer",
+        "Backend Developer",
+        "Frontend Developer",
+      ];
+    }
+
+    return res.json(parsed);
+  } catch (err) {
+    console.error("Job matching error:", err);
+    return res.status(500).json({
+      error: "Server error in job matching",
+    });
+  }
 };
