@@ -13,8 +13,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('skills')
   const [loading, setLoading] = useState(true)
   const [skills, setSkills] = useState([])
-  const [jobs, setJobs] = useState([])
-  const [aiSuggestedRoles, setAiSuggestedRoles] = useState([])
+  const [jobDomain, setJobDomain] = useState('')
+  const [jobRoles, setJobRoles] = useState([])
   const [learningPath, setLearningPath] = useState([])
   const [analyzing, setAnalyzing] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
@@ -77,23 +77,43 @@ function App() {
 
   const loadDashboardData = async () => {
     try {
-      const [skillsRes, jobsRes, learningRes] = await Promise.all([
+      // Fetch skills and learning path in parallel
+      const [skillsRes, learningRes] = await Promise.all([
         fetch(`${API_URL}/skills`, { credentials: 'include' }),
-        fetch(`${API_URL}/jobs/recommendations`, { credentials: 'include' }),
         fetch(`${API_URL}/learning/path`, { credentials: 'include' })
       ])
 
       const skillsData = await skillsRes.json()
-      const jobsData = await jobsRes.json()
       const learningData = await learningRes.json()
 
-      if (skillsData.skills && skillsData.skills.length > 0) setSkills(skillsData.skills)
-      if (jobsData.recommendations) setJobs(jobsData.recommendations)
-      if (jobsData.aiSuggestedRoles) setAiSuggestedRoles(jobsData.aiSuggestedRoles)
+      let currentSkills = skills
+      if (skillsData.skills && skillsData.skills.length > 0) {
+        setSkills(skillsData.skills)
+        currentSkills = skillsData.skills
+      }
+
       if (learningData.learningPath) {
         setLearningPath(learningData.learningPath)
         if (learningData.summary?.matchPercentage) {
           setMatchPercentage(learningData.summary.matchPercentage)
+        }
+      }
+
+      // Fetch AI job matches (POST with skills + interest)
+      if (currentSkills.length > 0) {
+        try {
+          const skillNames = currentSkills.map(s => s.name || s.skills?.name || 'Unknown')
+          const jobsRes = await fetch(`${API_URL}/jobs/generate-matches`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ skills: skillNames, interest: interests }),
+            credentials: 'include'
+          })
+          const jobsData = await jobsRes.json()
+          if (jobsData.domain) setJobDomain(jobsData.domain)
+          if (jobsData.roles) setJobRoles(jobsData.roles)
+        } catch (jobErr) {
+          console.error('Error fetching job matches:', jobErr)
         }
       }
     } catch (err) {
@@ -156,7 +176,8 @@ function App() {
     await fetch(`${API_URL}/auth/logout`, { credentials: 'include' })
     setUser(null)
     setSkills([])
-    setJobs([])
+    setJobDomain('')
+    setJobRoles([])
     setLearningPath([])
     setInterests('')
   }
@@ -211,8 +232,8 @@ function App() {
 
         {activeTab === 'jobs' && (
           <JobsTab
-            jobs={jobs}
-            aiSuggestedRoles={aiSuggestedRoles}
+            domain={jobDomain}
+            roles={jobRoles}
             onSelectTarget={handleSelectTarget}
             activeTargetRole={targetRole}
           />
@@ -243,7 +264,7 @@ function App() {
         show={showAssistant}
         onToggle={() => setShowAssistant(!showAssistant)}
         skills={skills}
-        jobs={jobs}
+        jobs={jobRoles}
         interests={interests}
       />
     </div>
@@ -885,7 +906,7 @@ function getCategoryIcon(category) {
 // JOBS TAB - ENHANCED
 // =============================================
 
-function JobsTab({ jobs, aiSuggestedRoles = [], onSelectTarget, activeTargetRole }) {
+function JobsTab({ domain, roles = [], onSelectTarget, activeTargetRole }) {
   const [dreamJob, setDreamJob] = useState('')
   const [selectedRoleForSim, setSelectedRoleForSim] = useState(null)
   const [showDreamInput, setShowDreamInput] = useState(false)
@@ -895,7 +916,7 @@ function JobsTab({ jobs, aiSuggestedRoles = [], onSelectTarget, activeTargetRole
       <div className="section-header mb-3 flex justify-between items-end">
         <div>
           <h2>Recommended Roles</h2>
-          <p className="text-muted">Smart matches based on your GitHub repository analysis</p>
+          <p className="text-muted">AI-powered matches based on your skills and interests</p>
         </div>
         {!showDreamInput && (
           <button
@@ -946,7 +967,27 @@ function JobsTab({ jobs, aiSuggestedRoles = [], onSelectTarget, activeTargetRole
         </div>
       )}
 
-      {aiSuggestedRoles.length > 0 && (
+      {domain && (
+        <div className="card glass-panel mb-4" style={{ animation: 'fadeIn 0.3s ease' }}>
+          <div className="flex items-center gap-1 mb-2">
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--teal)' }}>target</span>
+            <h3 style={{ margin: 0 }}>Your Domain</h3>
+          </div>
+          <span style={{
+            display: 'inline-block',
+            padding: '0.4rem 1rem',
+            borderRadius: '2rem',
+            background: 'var(--teal)',
+            color: 'white',
+            fontSize: '0.9rem',
+            fontWeight: 600
+          }}>
+            {domain}
+          </span>
+        </div>
+      )}
+
+      {roles.length > 0 && (
         <div className="card glass-panel mb-4" style={{ animation: 'fadeIn 0.3s ease' }}>
           <div className="flex items-center gap-1 mb-2">
             <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--teal)' }}>auto_awesome</span>
@@ -954,7 +995,7 @@ function JobsTab({ jobs, aiSuggestedRoles = [], onSelectTarget, activeTargetRole
             <span className="text-muted" style={{ fontSize: '0.75rem', marginLeft: '0.5rem' }}>AI-suggested based on your skills</span>
           </div>
           <div className="flex flex-wrap gap-1">
-            {aiSuggestedRoles.map((role, i) => (
+            {roles.map((role, i) => (
               <button
                 key={i}
                 className={`btn ${activeTargetRole === role ? 'btn-primary' : 'btn-ghost'}`}
@@ -974,26 +1015,13 @@ function JobsTab({ jobs, aiSuggestedRoles = [], onSelectTarget, activeTargetRole
         </div>
       )}
 
-      <div className="grid-2">
-        {jobs.length === 0 ? (
-          <div className="empty-state card grid-span-2">
-            <div className="empty-icon">...</div>
-            <h3>No direct matches yet</h3>
-            <p className="text-muted">Analyze your skills to see your match score!</p>
-          </div>
-        ) : (
-          jobs.map((job, i) => (
-            <EnhancedJobCard
-              key={i}
-              job={job}
-              rank={i + 1}
-              onPreview={() => setSelectedRoleForSim(job)}
-              onSelectTarget={() => onSelectTarget(job.title)}
-              isActiveTarget={activeTargetRole === job.title}
-            />
-          ))
-        )}
-      </div>
+      {roles.length === 0 && !domain && (
+        <div className="empty-state card">
+          <div className="empty-icon">...</div>
+          <h3>No matches yet</h3>
+          <p className="text-muted">Analyze your skills first to get AI-powered job role suggestions!</p>
+        </div>
+      )}
 
       {selectedRoleForSim && (
         <RoleSimulationModal

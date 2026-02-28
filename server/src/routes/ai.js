@@ -8,7 +8,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const dbService = require('../services/supabaseService');
-const jobMatcher = require('../services/jobMatcher');
 const aiService = require('../services/ai');
 
 const router = express.Router();
@@ -20,7 +19,7 @@ const router = express.Router();
 router.post('/career-advice', requireAuth, async (req, res) => {
     try {
         const { interests } = req.body;
-        console.log(`🤖 Providing career advice for ${req.session.user.login} (Interests: ${interests || 'none'})`);
+        console.log(`Providing career advice for ${req.session.user.login} (Interests: ${interests || 'none'})`);
 
         // Get user skills
         let userSkills = [];
@@ -49,28 +48,8 @@ router.post('/career-advice', requireAuth, async (req, res) => {
             }));
         }
 
-        // Get current job roles for context
-        let jobRoles = [];
-        try {
-            jobRoles = await dbService.getJobRoles();
-        } catch (dbError) { }
-
-        if (jobRoles.length === 0) {
-            // Small set of hardcoded roles for AI context if DB is empty
-            jobRoles = [
-                { title: 'Frontend Developer', experience_level: 'entry' },
-                { title: 'Backend Developer', experience_level: 'entry' },
-                { title: 'Full Stack Developer', experience_level: 'mid' },
-                { title: 'DevOps Engineer', experience_level: 'mid' },
-                { title: 'Data Scientist', experience_level: 'mid' }
-            ];
-        }
-
-        // Get current match scores for context
-        const matches = jobMatcher.getTopJobMatches(userSkills, jobRoles, 3);
-
-        // Get AI advice
-        const advice = await aiService.getCareerAdvice(userSkills, interests, matches);
+        // Get AI advice (no static role context needed — AI generates advice directly)
+        const advice = await aiService.getCareerAdvice(userSkills, interests, []);
 
         res.json({
             success: true,
@@ -78,7 +57,7 @@ router.post('/career-advice', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Career advice error:', error);
+        console.error('Career advice error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to get career advice',
