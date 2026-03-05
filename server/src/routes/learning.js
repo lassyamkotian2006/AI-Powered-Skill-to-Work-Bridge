@@ -12,6 +12,7 @@ const { requireAuth } = require('../middleware/auth');
 const dbService = require('../services/supabaseService');
 const jobMatcher = require('../services/jobMatcher');
 const aiService = require('../services/ai');
+const { generateFallbackPath } = require('../services/learningFallback');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const router = express.Router();
@@ -174,11 +175,17 @@ router.get('/path', requireAuth, async (req, res) => {
         res.json(responseData);
 
     } catch (error) {
-        console.error('❌ AI Learning path error:', error.message);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to generate AI learning path',
-            message: 'Ensure the Python AI server is running on port 5001.'
+        console.error('❌ AI Learning path error, using fallback:', error.message);
+        const targetRole = req.session?.user ? 'Software Developer' : 'Software Developer';
+        res.json({
+            success: true,
+            summary: {
+                matchPercentage: 0,
+                targetRole: targetRole,
+                interest: 'General',
+                isAI: false
+            },
+            learningPath: generateFallbackPath(targetRole)
         });
     }
 });
