@@ -23,14 +23,21 @@ const router = express.Router();
 router.post('/analyze', requireAuth, async (req, res) => {
     try {
         const { user, accessToken } = req.session;
+        const selectedRepoNames = req.body.repositories || [];
         console.log(`\n🔍 Starting skill analysis for: ${user.login}`);
 
         // Step 1: Get user's repositories from GitHub
         console.log('📚 Fetching repositories...');
-        const repos = await githubService.getUserRepos(accessToken);
+        let repos = await githubService.getUserRepos(accessToken);
         console.log(`   Found ${repos.length} repositories`);
 
-        // Step 2: Get detailed info for top repositories (limit to save API calls)
+        // Filter to selected repositories if specified
+        if (selectedRepoNames.length > 0) {
+            repos = repos.filter(repo => selectedRepoNames.includes(repo.name));
+            console.log(`   Filtered to ${repos.length} selected repositories`);
+        }
+
+        // Step 2: Get detailed info for repositories (limit to save API calls)
         const maxRepos = parseInt(req.query.limit) || 10;
         const topRepos = repos.slice(0, maxRepos);
 

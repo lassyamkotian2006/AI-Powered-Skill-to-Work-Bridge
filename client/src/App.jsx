@@ -22,6 +22,12 @@ function App() {
   const [generating, setGenerating] = useState(false)
   const [showResumePage, setShowResumePage] = useState(false)
 
+  // Repository selection state
+  const [showRepoSelector, setShowRepoSelector] = useState(false)
+  const [repos, setRepos] = useState([])
+  const [selectedRepos, setSelectedRepos] = useState([])
+  const [fetchingRepos, setFetchingRepos] = useState(false)
+
   // Profile management state
   const [interests, setInterests] = useState('')
   const [targetRole, setTargetRole] = useState('')
@@ -122,12 +128,33 @@ function App() {
   }
 
   const analyzeSkills = async () => {
-    setAnalyzing(true)
+    setFetchingRepos(true)
     try {
       await fetch(`${API_URL}/skills/sync`, { method: 'POST', credentials: 'include' })
-      const res = await fetch(`${API_URL}/skills/analyze`, { method: 'POST', credentials: 'include' })
+      const res = await fetch(`${API_URL}/repos`, { credentials: 'include' })
       const data = await res.json()
+      if (data.repositories && data.repositories.length > 0) {
+        setRepos(data.repositories)
+        setSelectedRepos(data.repositories.map(r => r.name))
+        setShowRepoSelector(true)
+      }
+    } catch (err) {
+      console.error('Error fetching repos:', err)
+    }
+    setFetchingRepos(false)
+  }
 
+  const analyzeSelectedRepos = async () => {
+    setShowRepoSelector(false)
+    setAnalyzing(true)
+    try {
+      const res = await fetch(`${API_URL}/skills/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repositories: selectedRepos }),
+        credentials: 'include'
+      })
+      const data = await res.json()
       if (data.success) {
         setSkills(data.skills || [])
         loadDashboardData()
@@ -197,6 +224,22 @@ function App() {
     return <LoginPage onLogin={login} />
   }
 
+  // Repository selection view
+  if (showRepoSelector) {
+    return (
+      <div className="app-container">
+        <Header user={user} onLogout={logout} />
+        <RepoSelector
+          repos={repos}
+          selectedRepos={selectedRepos}
+          setSelectedRepos={setSelectedRepos}
+          onAnalyze={analyzeSelectedRepos}
+          onCancel={() => setShowRepoSelector(false)}
+        />
+      </div>
+    )
+  }
+
   // Full-page resume view
   if (showResumePage && resumeData) {
     return (
@@ -219,7 +262,7 @@ function App() {
             <SkillsTab
               skills={skills}
               onAnalyze={analyzeSkills}
-              analyzing={analyzing}
+              analyzing={analyzing || fetchingRepos}
               interests={interests}
               setInterests={setInterests}
               isUpdatingProfile={isUpdatingProfile}
@@ -1937,6 +1980,104 @@ async function generateAIResponse(question, interests) {
     console.error('AI Advice Error:', err)
     return "I recommend looking at your roadmap to 100% and focusing on the core skills listed there!"
   }
+}
+
+// =============================================
+// REPOSITORY SELECTOR
+// =============================================
+
+function RepoSelector({ repos, selectedRepos, setSelectedRepos, onAnalyze, onCancel }) {
+  const toggleRepo = (name) => {
+    if (selectedRepos.includes(name)) {
+      setSelectedRepos(selectedRepos.filter(r => r !== name))
+    } else {
+      setSelectedRepos([...selectedRepos, name])
+    }
+  }
+
+  const selectAll = () => setSelectedRepos(repos.map(r => r.name))
+  const deselectAll = () => setSelectedRepos([])
+
+  return (
+    <div className="repo-selector">
+      <div className="repo-selector-header">
+        <div>
+          <h2>Select Repositories</h2>
+          <p className="text-muted">Choose which repositories to analyze for skill detection</p>
+        </div>
+        <div className="repo-selector-actions">
+          <button className="btn btn-ghost" onClick={selectAll}>Select All</button>
+          <button className="btn btn-ghost" onClick={deselectAll}>Deselect All</button>
+        </div>
+      </div>
+
+      <div className="repo-selector-count">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>folder</span>
+        {selectedRepos.length} of {repos.length} repositories selected
+      </div>
+
+      <div className="repo-grid">
+        {repos.map(repo => (
+          <div
+            key={repo.name}
+            className={`repo-card ${selectedRepos.includes(repo.name) ? 'selected' : ''}`}
+            onClick={() => toggleRepo(repo.name)}
+          >
+            <div className="repo-card-check">
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                {selectedRepos.includes(repo.name) ? 'check_circle' : 'radio_button_unchecked'}
+              </span>
+            </div>
+            <div className="repo-card-info">
+              <strong>{repo.name}</strong>
+              {repo.description && <p className="repo-desc">{repo.description}</p>}
+              <div className="repo-meta">
+                {repo.language && (
+                  <span className="repo-lang">
+                    <span className="lang-dot" style={{ background: getLanguageColor(repo.language) }}></span>
+                    {repo.language}
+                  </span>
+                )}
+                {repo.private && <span className="repo-badge">Private</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="repo-selector-footer">
+        <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+        <button
+          className="btn btn-primary"
+          onClick={onAnalyze}
+          disabled={selectedRepos.length === 0}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>analytics</span>
+          Analyze {selectedRepos.length} Repositor{selectedRepos.length === 1 ? 'y' : 'ies'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function getLanguageColor(lang) {
+  const colors = {
+    JavaScript: '#f1e05a',
+    TypeScript: '#3178c6',
+    Python: '#3572A5',
+    Java: '#b07219',
+    'C++': '#f34b7d',
+    HTML: '#e34c26',
+    CSS: '#563d7c',
+    Ruby: '#701516',
+    Go: '#00ADD8',
+    Rust: '#dea584',
+    PHP: '#4F5D95',
+    Swift: '#F05138',
+    Kotlin: '#A97BFF',
+    Dart: '#00B4AB'
+  }
+  return colors[lang] || '#8b949e'
 }
 
 export default App
