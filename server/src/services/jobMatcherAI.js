@@ -1,79 +1,99 @@
-const domainSkills = {
-    frontend: ["react", "html", "css", "javascript", "typescript", "next", "vue"],
-    backend: ["node", "express", "java", "spring", "django", "flask"],
-    data: ["python", "pandas", "numpy", "tensorflow", "pytorch", "sql"],
-    devops: ["docker", "kubernetes", "aws", "terraform", "ci", "cd"],
-    uiux: ["figma", "adobe xd", "design", "ui", "ux"]
-};
+function generateJobMatches(skills, focus) {
 
-const domainRoles = {
-    frontend: [
-        "Frontend Developer",
-        "React Developer",
-        "UI Engineer",
-        "Web Developer",
-        "Frontend Architect"
-    ],
-    backend: [
-        "Backend Developer",
-        "Node.js Developer",
-        "API Engineer",
-        "Software Engineer",
-        "Platform Engineer"
-    ],
-    data: [
-        "Data Analyst",
-        "Data Scientist",
-        "Machine Learning Engineer",
-        "AI Engineer",
-        "Business Intelligence Analyst"
-    ],
-    devops: [
-        "DevOps Engineer",
-        "Cloud Engineer",
-        "Site Reliability Engineer",
-        "Infrastructure Engineer",
-        "Platform DevOps Engineer"
-    ],
-    uiux: [
-        "UI Designer",
-        "UX Designer",
-        "Product Designer",
-        "Interaction Designer",
-        "UI/UX Specialist"
-    ]
-};
+    const skillString = skills.join(" ").toLowerCase();
+    const focusString = (focus || "").toLowerCase();
 
-function detectDomain(skills) {
-    const scores = {};
+    const combined = skillString + " " + focusString;
 
-    for (const domain in domainSkills) {
-        scores[domain] = 0;
-
-        skills.forEach(skill => {
-            const lower = skill.toLowerCase();
-
-            if (domainSkills[domain].some(ds => lower.includes(ds))) {
-                scores[domain]++;
-            }
-        });
+    if (combined.includes("security") || combined.includes("cyber")) {
+        return {
+            domain: "CYBERSECURITY",
+            roles: [
+                "Security Engineer",
+                "Cybersecurity Analyst",
+                "Application Security Engineer",
+                "DevSecOps Engineer",
+                "Security Researcher"
+            ]
+        };
     }
 
-    return Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
-}
+    if (combined.includes("react") || combined.includes("frontend")) {
+        return {
+            domain: "FRONTEND",
+            roles: [
+                "Frontend Developer",
+                "React Developer",
+                "UI Engineer",
+                "Web Developer",
+                "Frontend Architect"
+            ]
+        };
+    }
 
-exports.generateMatches = (skills) => {
+    if (combined.includes("node") || combined.includes("backend")) {
+        return {
+            domain: "BACKEND",
+            roles: [
+                "Backend Developer",
+                "Node.js Developer",
+                "API Engineer",
+                "Server Engineer",
+                "Platform Engineer"
+            ]
+        };
+    }
 
-    const domain = detectDomain(skills);
+    if (combined.includes("data") || combined.includes("python")) {
+        return {
+            domain: "DATA",
+            roles: [
+                "Data Scientist",
+                "Data Analyst",
+                "Machine Learning Engineer",
+                "AI Engineer",
+                "Analytics Engineer"
+            ]
+        };
+    }
 
-    const roles = domainRoles[domain] || [
-        "Software Developer",
-        "Technology Specialist",
-        "Software Engineer"
-    ];
+    if (combined.includes("devops") || combined.includes("docker")) {
+        return {
+            domain: "DEVOPS",
+            roles: [
+                "DevOps Engineer",
+                "Cloud Engineer",
+                "Site Reliability Engineer",
+                "Platform Engineer",
+                "Infrastructure Engineer"
+            ]
+        };
+    }
+
+    if (combined.includes("figma") || combined.includes("design") || combined.includes("ui") || combined.includes("ux")) {
+        return {
+            domain: "UI/UX",
+            roles: [
+                "UI Designer",
+                "UX Designer",
+                "Product Designer",
+                "Interaction Designer",
+                "UI/UX Specialist"
+            ]
+        };
+    }
 
     return {
-        domain: domain.toUpperCase(),
-        roles
+        domain: "SOFTWARE",
+        roles: [
+            "Software Developer",
+            "Full Stack Developer",
+            "Software Engineer",
+            "Application Developer",
+            "Technology Engineer"
+        ]
     };
-};
+
+}
+
+module.exports = { generateJobMatches };
