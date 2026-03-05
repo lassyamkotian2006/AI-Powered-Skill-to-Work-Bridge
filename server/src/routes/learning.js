@@ -160,10 +160,52 @@ router.get('/path', requireAuth, async (req, res) => {
             }
         }
 
+        // --- Job Readiness Score Calculation ---
+        const userSkillNames = skillsForAI.map(s => (s.name || '').toLowerCase());
+        const requiredSkills = roleSkillMap[targetRole] || [];
+        let readinessScore = matchPercentageFromAI;
+
+        if (requiredSkills.length > 0) {
+            const matchedSkills = requiredSkills.filter(skill =>
+                userSkillNames.some(s => s.includes(skill.toLowerCase()))
+            );
+            const missingSkills = requiredSkills.filter(skill =>
+                !userSkillNames.some(s => s.includes(skill.toLowerCase()))
+            );
+            readinessScore = Math.round((matchedSkills.length / requiredSkills.length) * 100);
+
+            // Add skill gap section if not already present
+            const hasGapSection = parsedPath.some(s => s.title === 'Current Skill Gaps');
+            if (!hasGapSection && missingSkills.length > 0) {
+                parsedPath.push({
+                    title: 'Current Skill Gaps',
+                    items: missingSkills
+                });
+            }
+
+            // Add recommended learning resources
+            const hasResourceSection = parsedPath.some(s => s.title === 'Recommended Learning');
+            if (!hasResourceSection && missingSkills.length > 0) {
+                const recommendedLearning = missingSkills.map(skill => {
+                    const resource = learningResources[skill];
+                    if (resource) {
+                        return `${skill} → ${resource.title}`;
+                    }
+                    return `${skill} → Search: https://www.youtube.com/results?search_query=${encodeURIComponent(skill)}+tutorial`;
+                });
+                parsedPath.push({
+                    title: 'Recommended Learning',
+                    items: recommendedLearning
+                });
+            }
+
+            console.log(`Job Readiness Score: ${readinessScore}% (${matchedSkills.length}/${requiredSkills.length} skills matched)`);
+        }
+
         const responseData = {
             success: true,
             summary: {
-                matchPercentage: matchPercentageFromAI,
+                matchPercentage: readinessScore,
                 targetRole: targetRole,
                 interest: interest,
                 isAI: !!(aiData && aiData.success)
