@@ -13,6 +13,8 @@ const dbService = require('../services/supabaseService');
 const jobMatcher = require('../services/jobMatcher');
 const aiService = require('../services/ai');
 const { generateFallbackPath } = require('../services/learningFallback');
+const roleSkillMap = require('../services/roleSkillMap');
+const learningResources = require('../services/learningResources');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const router = express.Router();
@@ -175,18 +177,59 @@ router.get('/path', requireAuth, async (req, res) => {
         res.json(responseData);
 
     } catch (error) {
-        console.error('❌ AI Learning path error, using fallback:', error.message);
-        const targetRole = req.session?.user ? 'Software Developer' : 'Software Developer';
-        res.json({
-            success: true,
-            summary: {
-                matchPercentage: 0,
-                targetRole: targetRole,
-                interest: 'General',
-                isAI: false
-            },
-            learningPath: generateFallbackPath(targetRole)
-        });
+        console.error('❌ AI Learning path error, using skill gap fallback:', error.message);
+
+        // Skill gap detection fallback
+        try {
+            const dbUser = await dbService.getUserById(req.session.user.id);
+            const userSkills = dbUser ? await dbService.getUserSkills(dbUser.id) : [];
+            const userSkillNames = userSkills.map(s => (s.skills?.name || s.name || '').toLowerCase());
+            const targetRole = dbUser?.target_role || 'Software Developer';
+
+            const requiredSkills = roleSkillMap[targetRole] || roleSkillMap['Software Developer'] || [];
+
+            const missingSkills = requiredSkills.filter(
+                skill => !userSkillNames.some(s => s.includes(skill.toLowerCase()))
+            );
+
+            const recommendedLearning = missingSkills.map(skill => {
+                const resource = learningResources[skill];
+                if (resource) {
+                    return `${skill} → ${resource.title}`;
+                }
+                return `${skill} → Search tutorial: https://www.youtube.com/results?search_query=${encodeURIComponent(skill)}+tutorial`;
+            });
+
+            const responseData = {
+                success: true,
+                summary: {
+                    matchPercentage: requiredSkills.length > 0 ? Math.round(((requiredSkills.length - missingSkills.length) / requiredSkills.length) * 100) : 0,
+                    targetRole: targetRole,
+                    interest: dbUser?.interests || 'General',
+                    isAI: false
+                },
+                learningPath: [
+                    {
+                        title: 'Current Skill Gaps',
+                        items: missingSkills.length > 0 ? missingSkills : ['No major gaps detected! Focus on deepening your existing skills.']
+                    },
+                    {
+                        title: 'Recommended Learning',
+                        items: recommendedLearning.length > 0 ? recommendedLearning : ['Keep practicing with real-world projects to solidify your skills.']
+                    }
+                ]
+            };
+
+            learningPathCache.set(`fallback-${targetRole}`, responseData);
+            res.json(responseData);
+        } catch (fallbackError) {
+            console.error('❌ Fallback also failed:', fallbackError.message);
+            res.json({
+                success: true,
+                summary: { matchPercentage: 0, targetRole: 'Software Developer', interest: 'General', isAI: false },
+                learningPath: generateFallbackPath('Software Developer')
+            });
+        }
     }
 });
 
