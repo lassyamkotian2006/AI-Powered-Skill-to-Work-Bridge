@@ -4,7 +4,7 @@ const roleRoadmaps = {
         "Master HTML, CSS, and modern JavaScript",
         "Learn React or another modern frontend framework",
         "Understand responsive design and accessibility",
-        "Build real-world projects like dashboards or portfolios",
+        "Build real-world frontend projects",
         "Learn API integration and state management"
     ],
 
@@ -42,7 +42,7 @@ const roleRoadmaps = {
 
 };
 
-exports.generateFallbackPath = (role) => {
+function generateFallbackPath(role) {
 
     const steps = roleRoadmaps[role] || [
         "Learn programming fundamentals",
@@ -58,4 +58,6 @@ exports.generateFallbackPath = (role) => {
             items: steps
         }
     ];
-};
+}
+
+module.exports = { generateFallbackPath };
