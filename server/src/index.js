@@ -82,6 +82,16 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+/**
+ * Keep-Alive Ping Route
+ * Lightweight endpoint for uptime monitors (e.g. UptimeRobot)
+ * to prevent the Render free-tier service from sleeping.
+ * No authentication required.
+ */
+app.get('/ping', (req, res) => {
+    res.status(200).send('Server is awake');
+});
+
 const path = require('path');
 
 /**
