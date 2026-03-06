@@ -1,5 +1,30 @@
 const resources = {
 
+    "HTML": {
+        title: "HTML Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=kUMe1FH4CHE"
+    },
+
+    "CSS": {
+        title: "CSS Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=OXGznpKZ_sA"
+    },
+
+    "JavaScript": {
+        title: "JavaScript Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+    },
+
+    "React": {
+        title: "React Full Course 2024",
+        url: "https://www.youtube.com/watch?v=CgkZ7MvWUAA"
+    },
+
+    "Node.js": {
+        title: "Node.js Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=f2EqECiTBL8"
+    },
+
     "TypeScript": {
         title: "TypeScript Crash Course",
         url: "https://www.youtube.com/watch?v=BCg4U1FzODs"
@@ -23,6 +48,16 @@ const resources = {
     "Machine Learning": {
         title: "Machine Learning Crash Course",
         url: "https://www.youtube.com/watch?v=Gv9_4yMHFhI"
+    },
+
+    "Deep Learning": {
+        title: "Deep Learning Fundamentals",
+        url: "https://www.youtube.com/watch?v=VyWAvY2CF9c"
+    },
+
+    "Natural Language Processing": {
+        title: "NLP with Python Tutorial",
+        url: "https://www.youtube.com/watch?v=fOvTtapxa9c"
     },
 
     "Kubernetes": {
@@ -75,6 +110,11 @@ const resources = {
         url: "https://www.youtube.com/watch?v=_uQrJ0TkZlc"
     },
 
+    "SQL": {
+        title: "SQL Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=HXV3zeQKqGY"
+    },
+
     "Statistics": {
         title: "Statistics for Data Science",
         url: "https://www.youtube.com/watch?v=xxpc-HPKN28"
@@ -103,6 +143,111 @@ const resources = {
     "Data Structures": {
         title: "Data Structures & Algorithms",
         url: "https://www.youtube.com/watch?v=8hly31xKli0"
+    },
+
+    "Algorithms": {
+        title: "Algorithms Full Course",
+        url: "https://www.youtube.com/watch?v=8hly31xKli0"
+    },
+
+    "Git": {
+        title: "Git & GitHub Crash Course",
+        url: "https://www.youtube.com/watch?v=RGOj5yH7evk"
+    },
+
+    "Version Control": {
+        title: "Git & GitHub for Beginners",
+        url: "https://www.youtube.com/watch?v=RGOj5yH7evk"
+    },
+
+    "Network Security": {
+        title: "Network Security Tutorial",
+        url: "https://www.youtube.com/watch?v=E03gh1huvW4"
+    },
+
+    "Penetration Testing": {
+        title: "Ethical Hacking Full Course",
+        url: "https://www.youtube.com/watch?v=3Kq1MIfTWCE"
+    },
+
+    "Cryptography": {
+        title: "Cryptography Explained",
+        url: "https://www.youtube.com/watch?v=jhXCTbFnK8o"
+    },
+
+    "OWASP": {
+        title: "OWASP Top 10 Security Risks",
+        url: "https://www.youtube.com/watch?v=rWHvp7rUka8"
+    },
+
+    "Security Auditing": {
+        title: "Security Auditing Fundamentals",
+        url: "https://www.youtube.com/watch?v=WlmFwOBVpRE"
+    },
+
+    "AWS": {
+        title: "AWS Cloud Practitioner Full Course",
+        url: "https://www.youtube.com/watch?v=SOTamWNgDKc"
+    },
+
+    "Networking": {
+        title: "Computer Networking Full Course",
+        url: "https://www.youtube.com/watch?v=qiQR5rTSshw"
+    },
+
+    "Infrastructure as Code": {
+        title: "Terraform Full Course",
+        url: "https://www.youtube.com/watch?v=7xngnjfIlK4"
+    },
+
+    "TensorFlow": {
+        title: "TensorFlow Full Tutorial",
+        url: "https://www.youtube.com/watch?v=tPYj3fFJGjk"
+    },
+
+    "Pandas": {
+        title: "Pandas Tutorial for Data Analysis",
+        url: "https://www.youtube.com/watch?v=vmEHCJofslg"
+    },
+
+    "Data Pipelines": {
+        title: "Data Engineering & Pipelines",
+        url: "https://www.youtube.com/watch?v=PHsC_t0j1dU"
+    },
+
+    "Programming Fundamentals": {
+        title: "Programming Fundamentals Course",
+        url: "https://www.youtube.com/watch?v=zOjov-2OZ0E"
+    },
+
+    "Excel": {
+        title: "Excel Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=Vl0H-qTclOg"
+    },
+
+    "React Native": {
+        title: "React Native Full Course",
+        url: "https://www.youtube.com/watch?v=VozPNrt-LfE"
+    },
+
+    "Mobile UI Design": {
+        title: "Mobile UI Design Principles",
+        url: "https://www.youtube.com/watch?v=_K06Dni-RE4"
+    },
+
+    "Solidity": {
+        title: "Solidity Full Course",
+        url: "https://www.youtube.com/watch?v=M576WGiDBdQ"
+    },
+
+    "Smart Contracts": {
+        title: "Smart Contract Development",
+        url: "https://www.youtube.com/watch?v=M576WGiDBdQ"
+    },
+
+    "Distributed Systems": {
+        title: "Distributed Systems Fundamentals",
+        url: "https://www.youtube.com/watch?v=UEAMfLPZZhE"
     }
 
 };

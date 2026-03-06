@@ -27,11 +27,12 @@ const learningPathCache = new Map();
 
 /**
  * GET /learning/path
- * Generate personalized learning path using HuggingFace AI (via Python microservice)
+ * Generate personalized learning path
+ * Priority: roleSkillMap gap analysis (always works) + AI enhancement (when available)
  */
 router.get('/path', requireAuth, async (req, res) => {
     try {
-        console.log(`📚 Requesting AI learning path for ${req.session.user.login}`);
+        console.log(`📚 Requesting learning path for ${req.session.user.login}`);
 
         // 1. Get user data from database
         const dbUser = await dbService.getUserById(req.session.user.id);
@@ -47,181 +48,193 @@ router.get('/path', requireAuth, async (req, res) => {
             category: s.skills?.category
         }));
 
-        // 3. Get interests and target role
-        const interest = dbUser.interests || "General Software Engineering";
+        // 3. Get target role (career goal)
         const targetRole = dbUser.target_role || dbUser.recommended_role || "Software Developer";
 
         // --- CACHE CHECK ---
-        const cacheKey = `${dbUser.id}-${targetRole}-${interest}`;
+        const cacheKey = `${dbUser.id}-${targetRole}`;
         if (learningPathCache.has(cacheKey)) {
             console.log('⚡ Serving learning path from cache');
             return res.json(learningPathCache.get(cacheKey));
         }
 
-        let aiData;
+        // =============================================
+        // STEP 1: SKILL GAP ANALYSIS (always runs)
+        // Compare user skills vs required skills for the role
+        // =============================================
+        const userSkillNames = skillsForAI.map(s => (s.name || '').toLowerCase());
+        const requiredSkills = roleSkillMap[targetRole] || [];
+        let readinessScore = 0;
+        let matchedSkills = [];
+        let missingSkills = [];
+
+        if (requiredSkills.length > 0) {
+            matchedSkills = requiredSkills.filter(skill =>
+                userSkillNames.some(s => s.includes(skill.toLowerCase()))
+            );
+            missingSkills = requiredSkills.filter(skill =>
+                !userSkillNames.some(s => s.includes(skill.toLowerCase()))
+            );
+            readinessScore = Math.round((matchedSkills.length / requiredSkills.length) * 100);
+            console.log(`Skill Gap: ${matchedSkills.length}/${requiredSkills.length} matched (${readinessScore}%)`);
+        }
+
+        // =============================================
+        // STEP 2: BUILD PERSONALIZED LEARNING PATH
+        // =============================================
+        let learningPath = [];
+
+        // Section 1: Skill Gaps
+        if (missingSkills.length > 0) {
+            learningPath.push({
+                title: 'Skill Gaps',
+                items: missingSkills.map(skill => `${skill} — required for ${targetRole}`)
+            });
+        } else if (requiredSkills.length > 0) {
+            learningPath.push({
+                title: 'Skill Gaps',
+                items: ['No gaps detected! You already have the core skills for this role.']
+            });
+        }
+
+        // Section 2: Step-by-step Roadmap
+        if (missingSkills.length > 0) {
+            const roadmapSteps = missingSkills.map((skill, i) =>
+                `Step ${i + 1}: Learn ${skill}`
+            );
+            roadmapSteps.push(`Step ${missingSkills.length + 1}: Build a project using your new skills`);
+            roadmapSteps.push(`Step ${missingSkills.length + 2}: Apply for ${targetRole} positions`);
+
+            learningPath.push({
+                title: 'Learning Roadmap',
+                items: roadmapSteps
+            });
+        } else {
+            learningPath.push({
+                title: 'Learning Roadmap',
+                items: [
+                    'Deepen expertise in your strongest skills',
+                    'Build advanced portfolio projects',
+                    'Contribute to open source in your domain',
+                    'Practice system design and architecture',
+                    `Apply for ${targetRole} positions`
+                ]
+            });
+        }
+
+        // Section 3: Recommended Resources (YouTube/docs links)
+        if (missingSkills.length > 0) {
+            const resourceItems = missingSkills.map(skill => {
+                const resource = learningResources[skill];
+                if (resource) {
+                    return `${skill} → ${resource.title} (${resource.url})`;
+                }
+                return `${skill} → Search: https://www.youtube.com/results?search_query=${encodeURIComponent(skill)}+tutorial`;
+            });
+            learningPath.push({
+                title: 'Recommended Resources',
+                items: resourceItems
+            });
+        }
+
+        // Section 4: Your Strengths
+        if (matchedSkills.length > 0) {
+            learningPath.push({
+                title: 'Your Strengths',
+                items: matchedSkills.map(skill => `${skill} — you already have this skill`)
+            });
+        }
+
+        // =============================================
+        // STEP 3: TRY AI ENHANCEMENT (optional)
+        // =============================================
+        let isAI = false;
+
+        // Try Python AI microservice first
         try {
             const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     skills: skillsForAI,
-                    interest: interest,
+                    interest: targetRole,
                     target_role: targetRole
                 }),
-                timeout: 8000 // 8 second timeout
+                timeout: 8000
             });
 
             if (pythonResponse.ok) {
-                aiData = await pythonResponse.json();
+                const aiData = await pythonResponse.json();
+                if (aiData.success && aiData.learning_path) {
+                    const aiSections = parseAIRoadmap(aiData.learning_path);
+                    if (aiSections.some(s => s.items.length > 0)) {
+                        learningPath.unshift(...aiSections.filter(s => s.items.length > 0));
+                        isAI = true;
+                        if (aiData.match_percentage) {
+                            readinessScore = Math.max(readinessScore, aiData.match_percentage);
+                        }
+                        console.log('AI Enhancement: Python microservice path added');
+                    }
+                }
             }
         } catch (fetchError) {
-            console.error('⚠️ Python AI service unreachable or timed out:', fetchError.message);
+            console.log('⚠️ Python AI unavailable, using skill gap analysis only');
         }
 
-        let parsedPath;
-        let matchPercentageFromAI = 0;
-
-        if (aiData && aiData.success) {
-            // Tier 1: Use Python AI microservice generated path
-            parsedPath = parseAIRoadmap(aiData.learning_path);
-            matchPercentageFromAI = aiData.match_percentage;
-            console.log(`Tier 1 (Python AI): Learning path generated with ${aiData.match_percentage}% match`);
-        } else {
-            // Tier 2: Try Groq AI for structured learning path
-            console.log('Tier 2: Attempting Groq AI learning path...');
-            const groqPath = await aiService.generateAILearningPath(skillsForAI, targetRole);
-
-            if (groqPath) {
-                parsedPath = [];
-
-                if (groqPath.missing_skills && groqPath.missing_skills.length > 0) {
-                    parsedPath.push({
-                        title: 'Missing Skills',
-                        items: groqPath.missing_skills
-                    });
-                }
-
-                if (groqPath.technologies_to_learn && groqPath.technologies_to_learn.length > 0) {
-                    parsedPath.push({
-                        title: 'Technologies to Learn',
-                        items: groqPath.technologies_to_learn
-                    });
-                }
-
-                if (groqPath.step_by_step_plan && groqPath.step_by_step_plan.length > 0) {
-                    parsedPath.push({
-                        title: 'Step-by-Step Roadmap',
-                        items: groqPath.step_by_step_plan
-                    });
-                }
-
-                if (groqPath.recommended_projects && groqPath.recommended_projects.length > 0) {
-                    parsedPath.push({
-                        title: 'Recommended Projects',
-                        items: groqPath.recommended_projects
-                    });
-                }
-
-                // Calculate match from jobMatcher for the progress bar
-                const jobRoles = await dbService.getJobRoles();
-                const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole);
-                const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
-                matchPercentageFromAI = match.score;
-                console.log(`Tier 2 (Groq AI): Learning path generated with ${parsedPath.length} sections`);
-            } else {
-                // Tier 3: Basic fallback from skill-gap analysis
-                console.log('Tier 3: Using jobMatcher fallback');
-                const jobRoles = await dbService.getJobRoles();
-                const targetRoleObj = (jobRoles || []).find(r => r.title === targetRole);
-
-                const match = jobMatcher.calculateJobMatch(skillsForAI, targetRoleObj || { title: targetRole }, interest);
-                matchPercentageFromAI = match.score;
-
-                parsedPath = [
-                    {
-                        title: 'Current Skill Gaps',
-                        items: match.missingSkills.length > 0
-                            ? match.missingSkills.map(s => `${s.name} (${s.importance})`)
-                            : ['No major gaps detected! Focus on deep diving into your existing stack.']
-                    },
-                    {
-                        title: 'Recommended Roadmap',
-                        items: match.roadmap.steps.map(s => `Master ${s.skill} to ${s.targetLevel} level (~${s.estimatedHours}h)`)
-                    },
-                    {
-                        title: 'Next Steps',
-                        items: [
-                            `Focus on ${match.missingSkills[0]?.name || 'advanced projects'} first.`,
-                            'Build a portfolio project demonstrating these new skills.',
-                            'Review official documentation and community tutorials.'
-                        ]
+        // If Python AI failed, try Groq
+        if (!isAI) {
+            try {
+                const groqPath = await aiService.generateAILearningPath(skillsForAI, targetRole);
+                if (groqPath) {
+                    const aiSections = [];
+                    if (groqPath.missing_skills?.length > 0) {
+                        aiSections.push({ title: 'AI-Detected Missing Skills', items: groqPath.missing_skills });
                     }
-                ];
-            }
-        }
-
-        // --- Job Readiness Score Calculation ---
-        const userSkillNames = skillsForAI.map(s => (s.name || '').toLowerCase());
-        const requiredSkills = roleSkillMap[targetRole] || [];
-        let readinessScore = matchPercentageFromAI;
-
-        if (requiredSkills.length > 0) {
-            const matchedSkills = requiredSkills.filter(skill =>
-                userSkillNames.some(s => s.includes(skill.toLowerCase()))
-            );
-            const missingSkills = requiredSkills.filter(skill =>
-                !userSkillNames.some(s => s.includes(skill.toLowerCase()))
-            );
-            readinessScore = Math.round((matchedSkills.length / requiredSkills.length) * 100);
-
-            // Add skill gap section if not already present
-            const hasGapSection = parsedPath.some(s => s.title === 'Current Skill Gaps');
-            if (!hasGapSection && missingSkills.length > 0) {
-                parsedPath.push({
-                    title: 'Current Skill Gaps',
-                    items: missingSkills
-                });
-            }
-
-            // Add recommended learning resources
-            const hasResourceSection = parsedPath.some(s => s.title === 'Recommended Learning');
-            if (!hasResourceSection && missingSkills.length > 0) {
-                const recommendedLearning = missingSkills.map(skill => {
-                    const resource = learningResources[skill];
-                    if (resource) {
-                        return `${skill} → ${resource.title}`;
+                    if (groqPath.step_by_step_plan?.length > 0) {
+                        aiSections.push({ title: 'AI-Generated Roadmap', items: groqPath.step_by_step_plan });
                     }
-                    return `${skill} → Search: https://www.youtube.com/results?search_query=${encodeURIComponent(skill)}+tutorial`;
-                });
-                parsedPath.push({
-                    title: 'Recommended Learning',
-                    items: recommendedLearning
-                });
+                    if (groqPath.recommended_projects?.length > 0) {
+                        aiSections.push({ title: 'Recommended Projects', items: groqPath.recommended_projects });
+                    }
+                    if (aiSections.length > 0) {
+                        learningPath.unshift(...aiSections);
+                        isAI = true;
+                        console.log('AI Enhancement: Groq path added');
+                    }
+                }
+            } catch (groqError) {
+                console.log('⚠️ Groq AI unavailable, using skill gap analysis only');
             }
-
-            console.log(`Job Readiness Score: ${readinessScore}% (${matchedSkills.length}/${requiredSkills.length} skills matched)`);
         }
 
+        // =============================================
+        // STEP 4: HANDLE UNKNOWN ROLES (no roleSkillMap entry)
+        // =============================================
+        if (requiredSkills.length === 0 && !isAI) {
+            learningPath = generateFallbackPath(targetRole);
+            console.log(`Using fallback roadmap for unknown role: ${targetRole}`);
+        }
+
+        // =============================================
+        // RESPOND
+        // =============================================
         const responseData = {
             success: true,
             summary: {
                 matchPercentage: readinessScore,
                 targetRole: targetRole,
-                interest: interest,
-                isAI: !!(aiData && aiData.success)
+                isAI: isAI
             },
-            learningPath: parsedPath
+            learningPath: learningPath
         };
 
-        // Save to cache
         learningPathCache.set(cacheKey, responseData);
-
         res.json(responseData);
 
     } catch (error) {
-        console.error('❌ AI Learning path error, using skill gap fallback:', error.message);
+        console.error('❌ Learning path error:', error.message);
 
-        // Skill gap detection fallback
+        // Emergency fallback — always return something useful
         try {
             const dbUser = await dbService.getUserById(req.session.user.id);
             const userSkills = dbUser ? await dbService.getUserSkills(dbUser.id) : [];
@@ -237,38 +250,34 @@ router.get('/path', requireAuth, async (req, res) => {
             const recommendedLearning = missingSkills.map(skill => {
                 const resource = learningResources[skill];
                 if (resource) {
-                    return `${skill} → ${resource.title}`;
+                    return `${skill} → ${resource.title} (${resource.url})`;
                 }
-                return `${skill} → Search tutorial: https://www.youtube.com/results?search_query=${encodeURIComponent(skill)}+tutorial`;
+                return `${skill} → Search: https://www.youtube.com/results?search_query=${encodeURIComponent(skill)}+tutorial`;
             });
 
-            const responseData = {
+            res.json({
                 success: true,
                 summary: {
                     matchPercentage: requiredSkills.length > 0 ? Math.round(((requiredSkills.length - missingSkills.length) / requiredSkills.length) * 100) : 0,
                     targetRole: targetRole,
-                    interest: dbUser?.interests || 'General',
                     isAI: false
                 },
                 learningPath: [
                     {
-                        title: 'Current Skill Gaps',
-                        items: missingSkills.length > 0 ? missingSkills : ['No major gaps detected! Focus on deepening your existing skills.']
+                        title: 'Skill Gaps',
+                        items: missingSkills.length > 0 ? missingSkills : ['No major gaps detected!']
                     },
                     {
-                        title: 'Recommended Learning',
-                        items: recommendedLearning.length > 0 ? recommendedLearning : ['Keep practicing with real-world projects to solidify your skills.']
+                        title: 'Recommended Resources',
+                        items: recommendedLearning.length > 0 ? recommendedLearning : ['Keep practicing with real-world projects.']
                     }
                 ]
-            };
-
-            learningPathCache.set(`fallback-${targetRole}`, responseData);
-            res.json(responseData);
+            });
         } catch (fallbackError) {
             console.error('❌ Fallback also failed:', fallbackError.message);
             res.json({
                 success: true,
-                summary: { matchPercentage: 0, targetRole: 'Software Developer', interest: 'General', isAI: false },
+                summary: { matchPercentage: 0, targetRole: 'Software Developer', isAI: false },
                 learningPath: generateFallbackPath('Software Developer')
             });
         }

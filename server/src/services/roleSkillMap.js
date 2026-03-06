@@ -66,6 +66,14 @@ const roleSkillMap = {
         "Data Pipelines"
     ],
 
+    "AI Engineer": [
+        "Python",
+        "Machine Learning",
+        "Deep Learning",
+        "Natural Language Processing",
+        "Cloud Computing"
+    ],
+
     "DevOps Engineer": [
         "Linux",
         "Docker",
@@ -90,6 +98,23 @@ const roleSkillMap = {
         "OWASP"
     ],
 
+    "Cybersecurity Analyst": [
+        "Network Security",
+        "Linux",
+        "Penetration Testing",
+        "OWASP",
+        "Security Auditing"
+    ],
+
+    "Cybersecurity Engineer": [
+        "Network Security",
+        "Linux",
+        "Penetration Testing",
+        "Cryptography",
+        "Cloud Computing",
+        "OWASP"
+    ],
+
     "Full Stack Developer": [
         "HTML",
         "CSS",
@@ -108,6 +133,39 @@ const roleSkillMap = {
         "Version Control",
         "Testing",
         "System Design"
+    ],
+
+    "Software Engineer": [
+        "Programming Fundamentals",
+        "Data Structures",
+        "Algorithms",
+        "System Design",
+        "Testing",
+        "Databases"
+    ],
+
+    "Mobile Developer": [
+        "JavaScript",
+        "React Native",
+        "Mobile UI Design",
+        "REST APIs",
+        "Testing"
+    ],
+
+    "Game Developer": [
+        "C++",
+        "Game Engines",
+        "3D Mathematics",
+        "Physics Simulation",
+        "Graphics Programming"
+    ],
+
+    "Blockchain Developer": [
+        "Solidity",
+        "Smart Contracts",
+        "Cryptography",
+        "Distributed Systems",
+        "JavaScript"
     ]
 
 };
