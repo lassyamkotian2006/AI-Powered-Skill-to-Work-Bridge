@@ -157,4 +157,39 @@ router.get('/career/path', requireAuth, async (req, res) => {
     }
 });
 
+/**
+ * POST /jobs/goal
+ * Save a custom career goal
+ */
+router.post('/goal', requireAuth, async (req, res) => {
+    try {
+        const { goal } = req.body;
+
+        if (!goal) {
+            return res.status(400).json({
+                success: false,
+                error: 'Goal required'
+            });
+        }
+
+        // Save to database
+        await dbService.updateUserTargetRole(req.session.user.id, goal);
+
+        // Update session
+        req.session.user.targetRole = goal;
+
+        res.json({
+            success: true,
+            goal
+        });
+
+    } catch (err) {
+        console.error('Goal save error:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to save career goal'
+        });
+    }
+});
+
 module.exports = router;

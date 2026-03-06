@@ -49,7 +49,7 @@ router.get('/path', requireAuth, async (req, res) => {
 
         // 3. Get interests and target role
         const interest = dbUser.interests || "General Software Engineering";
-        const targetRole = dbUser.target_role || "Full Stack Developer";
+        const targetRole = dbUser.target_role || dbUser.recommended_role || "Software Developer";
 
         // --- CACHE CHECK ---
         const cacheKey = `${dbUser.id}-${targetRole}-${interest}`;

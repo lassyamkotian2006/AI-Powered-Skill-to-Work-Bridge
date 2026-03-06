@@ -29,7 +29,6 @@ function App() {
   const [fetchingRepos, setFetchingRepos] = useState(false)
 
   // Profile management state
-  const [interests, setInterests] = useState('')
   const [targetRole, setTargetRole] = useState('')
   const [matchPercentage, setMatchPercentage] = useState(0)
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
@@ -39,27 +38,6 @@ function App() {
     checkAuth()
   }, [])
 
-  // Auto-save interests with debounce
-  useEffect(() => {
-    if (!user) return
-    setIsUpdatingProfile(true)
-    const timer = setTimeout(async () => {
-      try {
-        await fetch(`${API_URL}/auth/profile`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ interests }),
-          credentials: 'include'
-        })
-        loadDashboardData()
-      } catch (err) {
-        console.error('Auto-save error:', err)
-      } finally {
-        setIsUpdatingProfile(false)
-      }
-    }, 1000) // 1 second debounce
-    return () => clearTimeout(timer)
-  }, [interests, user])
   const checkAuth = async () => {
     try {
       const res = await fetch(`${API_URL}/auth/user`, { credentials: 'include' })
@@ -112,7 +90,7 @@ function App() {
           const jobsRes = await fetch(`${API_URL}/jobs/generate-matches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ skills: skillNames, interest: interests }),
+            body: JSON.stringify({ skills: skillNames, interest: targetRole }),
             credentials: 'include'
           })
           const jobsData = await jobsRes.json()
@@ -206,7 +184,6 @@ function App() {
     setJobDomain('')
     setJobRoles([])
     setLearningPath([])
-    setInterests('')
   }
 
   if (loading) {
@@ -263,12 +240,6 @@ function App() {
               skills={skills}
               onAnalyze={analyzeSkills}
               analyzing={analyzing || fetchingRepos}
-              interests={interests}
-              setInterests={setInterests}
-              isUpdatingProfile={isUpdatingProfile}
-              setIsUpdatingProfile={setIsUpdatingProfile}
-              API_URL={API_URL}
-              loadDashboardData={loadDashboardData}
             />
           </div>
         )}
@@ -308,7 +279,7 @@ function App() {
         onToggle={() => setShowAssistant(!showAssistant)}
         skills={skills}
         jobs={jobRoles}
-        interests={interests}
+        interests={targetRole}
       />
     </div>
   )
@@ -715,15 +686,8 @@ function NavTabs({ activeTab, setActiveTab, isAnalyzed }) {
 function SkillsTab({
   skills,
   onAnalyze,
-  analyzing,
-  interests,
-  setInterests,
-  isUpdatingProfile,
-  setIsUpdatingProfile,
-  API_URL,
-  loadDashboardData
+  analyzing
 }) {
-  const [showFocusInput, setShowFocusInput] = useState(false)
   const groupByCategory = (skills) => {
     return skills.reduce((acc, skill) => {
       const category = skill.category || 'other'
@@ -756,15 +720,6 @@ function SkillsTab({
           )}
         </div>
         <div className="flex gap-1 items-center">
-          {!showFocusInput && (
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
-              onClick={() => setShowFocusInput(true)}
-            >
-              Set Career Focus
-            </button>
-          )}
           <button
             className={`btn btn-primary ${analyzing ? 'ai-shimmer' : ''}`}
             onClick={onAnalyze}
@@ -782,112 +737,46 @@ function SkillsTab({
         </div>
       </div>
 
-      {showFocusInput && (
-        <div className="card glass-panel mb-4" style={{ position: 'relative', animation: 'fadeIn 0.3s ease' }}>
-          <button
-            onClick={() => setShowFocusInput(false)}
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer'
-            }}
-          >
-            ✕
-          </button>
-          <h3 className="mb-2">Set Your Focus</h3>
-          <p className="text-muted mb-2">What kind of work are you interested in? (e.g., "Full Stack", "Blockchain")</p>
-          <div className="flex gap-1 items-center">
-            <div style={{ flex: 1, position: 'relative' }}>
-              <input
-                type="text"
-                value={interests}
-                onChange={(e) => setInterests(e.target.value)}
-                placeholder="Enter your professional interests..."
-                className="form-input"
-                style={{ width: '100%', padding: '0.75rem', paddingRight: '100px' }}
-              />
-              {isUpdatingProfile && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    right: '1rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    fontSize: '0.75rem',
-                    color: 'var(--teal)',
-                    fontWeight: 500
-                  }}
-                >
-                  Saving...
-                </span>
-              )}
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                try {
-                  setIsUpdatingProfile(true)
-                  await fetch(`${API_URL}/auth/profile`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ interests }),
-                    credentials: 'include'
-                  })
-                  loadDashboardData()
-                } catch (err) {
-                  console.error('Update error:', err)
-                } finally {
-                  setIsUpdatingProfile(false)
-                }
-              }}
-              disabled={isUpdatingProfile}
-            >
-              Save
-            </button>
-          </div>
+    </div>
+
+      {
+    skills.length === 0 ? (
+      <div className="empty-state card">
+        <div className="empty-icon">...</div>
+        <h3>No skills analyzed yet</h3>
+        <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
+      </div>
+    ) : (
+    <>
+      {/* Code Quality Signals */}
+      {codeQualitySignals.length > 0 && (
+        <div className="quality-badges mb-3">
+          {codeQualitySignals.map((signal, i) => (
+            <span key={i} className={`quality-badge ${signal.status}`}>
+              {signal.icon} {signal.label}
+            </span>
+          ))}
         </div>
       )}
 
-      {skills.length === 0 ? (
-        <div className="empty-state card">
-          <div className="empty-icon">...</div>
-          <h3>No skills analyzed yet</h3>
-          <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
-        </div>
-      ) : (
-        <>
-          {/* Code Quality Signals */}
-          {codeQualitySignals.length > 0 && (
-            <div className="quality-badges mb-3">
-              {codeQualitySignals.map((signal, i) => (
-                <span key={i} className={`quality-badge ${signal.status}`}>
-                  {signal.icon} {signal.label}
-                </span>
+      <div className="grid-2">
+        {categories.map(category => (
+          <div key={category} className="card">
+            <h3 className="mb-2" style={{ textTransform: 'capitalize' }}>
+              {getCategoryIcon(category)} {category}
+            </h3>
+            <div className="flex flex-wrap gap-1">
+              {grouped[category].map((skill, i) => (
+                <EnhancedSkillBadge key={i} skill={skill} />
               ))}
             </div>
-          )}
-
-          <div className="grid-2">
-            {categories.map(category => (
-              <div key={category} className="card">
-                <h3 className="mb-2" style={{ textTransform: 'capitalize' }}>
-                  {getCategoryIcon(category)} {category}
-                </h3>
-                <div className="flex flex-wrap gap-1">
-                  {grouped[category].map((skill, i) => (
-                    <EnhancedSkillBadge key={i} skill={skill} />
-                  ))}
-                </div>
-              </div>
-            ))}
           </div>
-        </>
-      )}
-    </div>
+        ))}
+      </div>
+    </>
+  )
+  }
+    </div >
   )
 }
 
@@ -967,7 +856,7 @@ function JobsTab({ domain, roles = [], onSelectTarget, activeTargetRole }) {
             style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
             onClick={() => setShowDreamInput(true)}
           >
-            Set Custom Goal
+            Set Career Goal
           </button>
         )}
       </div>
@@ -988,8 +877,8 @@ function JobsTab({ domain, roles = [], onSelectTarget, activeTargetRole }) {
           >
             ✕
           </button>
-          <h3 className="mb-2">Set Your Dream Goal</h3>
-          <p className="text-muted mb-2">Enter any career path to generate a personalized roadmap.</p>
+          <h3 className="mb-2">Career Goal</h3>
+          <p className="text-muted mb-2">Enter your desired career role (e.g., AI Engineer, Frontend Developer, Cybersecurity Analyst)</p>
           <div className="flex gap-1">
             <input
               type="text"

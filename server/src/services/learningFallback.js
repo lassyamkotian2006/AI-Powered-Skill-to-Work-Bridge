@@ -45,11 +45,11 @@ const roleRoadmaps = {
 function generateFallbackPath(role) {
 
     const steps = roleRoadmaps[role] || [
-        "Learn programming fundamentals",
-        "Master data structures and algorithms",
-        "Study system design basics",
+        "Learn fundamentals of the domain",
+        "Study core tools and frameworks",
         "Build real-world projects",
-        "Contribute to open source"
+        "Practice problem solving",
+        "Apply for internships"
     ];
 
     return [
