@@ -737,45 +737,43 @@ function SkillsTab({
         </div>
       </div>
 
-    </div>
-
       {
-    skills.length === 0 ? (
-      <div className="empty-state card">
-        <div className="empty-icon">...</div>
-        <h3>No skills analyzed yet</h3>
-        <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
-      </div>
-    ) : (
-    <>
-      {/* Code Quality Signals */}
-      {codeQualitySignals.length > 0 && (
-        <div className="quality-badges mb-3">
-          {codeQualitySignals.map((signal, i) => (
-            <span key={i} className={`quality-badge ${signal.status}`}>
-              {signal.icon} {signal.label}
-            </span>
-          ))}
-        </div>
-      )}
+        skills.length === 0 ? (
+          <div className="empty-state card">
+            <div className="empty-icon">...</div>
+            <h3>No skills analyzed yet</h3>
+            <p className="text-muted">Click "Analyze Repos" to scan your GitHub repositories and extract your technical skills using AI.</p>
+          </div>
+        ) : (
+          <>
+            {/* Code Quality Signals */}
+            {codeQualitySignals.length > 0 && (
+              <div className="quality-badges mb-3">
+                {codeQualitySignals.map((signal, i) => (
+                  <span key={i} className={`quality-badge ${signal.status}`}>
+                    {signal.icon} {signal.label}
+                  </span>
+                ))}
+              </div>
+            )}
 
-      <div className="grid-2">
-        {categories.map(category => (
-          <div key={category} className="card">
-            <h3 className="mb-2" style={{ textTransform: 'capitalize' }}>
-              {getCategoryIcon(category)} {category}
-            </h3>
-            <div className="flex flex-wrap gap-1">
-              {grouped[category].map((skill, i) => (
-                <EnhancedSkillBadge key={i} skill={skill} />
+            <div className="grid-2">
+              {categories.map(category => (
+                <div key={category} className="card">
+                  <h3 className="mb-2" style={{ textTransform: 'capitalize' }}>
+                    {getCategoryIcon(category)} {category}
+                  </h3>
+                  <div className="flex flex-wrap gap-1">
+                    {grouped[category].map((skill, i) => (
+                      <EnhancedSkillBadge key={i} skill={skill} />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-        ))}
-      </div>
-    </>
-  )
-  }
+          </>
+        )
+      }
     </div >
   )
 }
