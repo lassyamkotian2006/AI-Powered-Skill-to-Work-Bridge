@@ -366,7 +366,7 @@ router.post('/otp/send', async (req, res) => {
  * POST /auth/otp/verify
  * Verifies the 6-digit code
  */
-router.post('/otp/verify', (req, res) => {
+router.post('/otp/verify', async (req, res) => {
     console.log('🔑 Request to /otp/verify:', req.body);
     let { email, code } = req.body;
     email = email?.trim();
@@ -381,6 +381,22 @@ router.post('/otp/verify', (req, res) => {
         if (isValid) {
             req.session.otpVerified = true;
             req.session.verifiedEmail = email;
+
+            // Mark user as verified in the database
+            const user = await dbService.getUserByEmail(email);
+            if (user) {
+                await dbService.updateUserVerification(user.id, true);
+
+                // Create login session so the user is logged in immediately
+                req.session.user = {
+                    id: user.id,
+                    githubId: user.github_id,
+                    login: user.username,
+                    name: user.name || user.username,
+                    avatarUrl: user.avatar_url
+                };
+            }
+
             console.log(`✅ OTP verified for ${email}`);
             res.json({ success: true, message: 'OTP verified successfully' });
         } else {

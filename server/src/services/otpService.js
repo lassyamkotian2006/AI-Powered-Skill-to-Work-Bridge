@@ -2,18 +2,18 @@
  * OTP Service
  * -----------
  * Handles generation, storage, and verification of One-Time Passwords.
- * For this bridge, we use an in-memory store for simplicity, but codes 
- * expire after 5 minutes.
+ * Uses Gmail SMTP for sending verification emails.
+ * Codes expire after 10 minutes.
  */
 
 const otps = new Map();
 const nodemailer = require('nodemailer');
+const generateOTP = require('../utils/generateOTP');
+const { sendOTP: sendOTPEmail } = require('./emailService');
 
-// Initialize transporter
+// Initialize transporter (Gmail service)
 const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT === '465',
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -23,9 +23,9 @@ const transporter = nodemailer.createTransport({
 /**
  * Generate a 6-digit OTP for a given email
  */
-async function generateOTP(email) {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+async function generateOTPForEmail(email) {
+    const code = generateOTP();
+    const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
 
     otps.set(email, { code, expiry });
 
@@ -41,7 +41,7 @@ async function generateOTP(email) {
                 from: `"SkillBridge" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
                 to: email,
                 subject: "Your Verification Code - SkillBridge",
-                text: `Your verification code is: ${code}. It will expire in 5 minutes.`,
+                text: `Your verification code is: ${code}. It will expire in 10 minutes.`,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
                         <h2 style="color: #2D3748; text-align: center;">Verification Code</h2>
@@ -49,7 +49,7 @@ async function generateOTP(email) {
                         <div style="background-color: #F7FAFC; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
                             <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #3182CE;">${code}</span>
                         </div>
-                        <p style="font-size: 14px; color: #718096; text-align: center;">This code will expire in 5 minutes.</p>
+                        <p style="font-size: 14px; color: #718096; text-align: center;">This code will expire in 10 minutes.</p>
                         <hr style="border: 0; border-top: 1px solid #e0e0e0; margin: 20px 0;">
                         <p style="font-size: 12px; color: #A0AEC0; text-align: center;">If you didn't request this code, please ignore this email.</p>
                     </div>
@@ -86,6 +86,6 @@ function verifyOTP(email, code) {
 }
 
 module.exports = {
-    generateOTP,
+    generateOTP: generateOTPForEmail,
     verifyOTP
 };
