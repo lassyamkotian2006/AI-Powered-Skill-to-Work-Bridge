@@ -6,6 +6,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
 exports.sendOTPEmail = async (email, otp) => {
@@ -23,12 +26,9 @@ exports.sendOTPEmail = async (email, otp) => {
       `,
     });
 
-    console.log("✅ Email sent:", info.messageId);
-
+    console.log("✅ Email sent:", info.response);
   } catch (err) {
-    console.error("❌ EMAIL FAILED:", err.message);
-
-    // 🔥 IMPORTANT FALLBACK
-    console.log("🔑 OTP FALLBACK:", otp);
+    console.error("❌ EMAIL FAILED FULL ERROR:", err);
+    throw err;
   }
 };
