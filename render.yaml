@@ -30,15 +30,9 @@ services:
         value: /
       - key: AI_SERVICE_URL
         value: http://skill-bridge-ai
-      - key: EMAIL_HOST
-        sync: false
-      - key: EMAIL_PORT
-        sync: false
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS
-        sync: false
-      - key: EMAIL_FROM
         sync: false
 
   - type: web
