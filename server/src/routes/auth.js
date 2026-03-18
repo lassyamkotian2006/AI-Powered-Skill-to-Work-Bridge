@@ -353,6 +353,9 @@ router.post("/send-otp", async (req, res) => {
             expires: Date.now() + 10 * 60 * 1000
         };
 
+        // Always show OTP in logs for urgent debugging / manual fallback
+        console.log("🔐 OTP GENERATED:", { email, otp });
+
         await sendOTPEmail(email, otp);
 
         res.json({ success: true });
