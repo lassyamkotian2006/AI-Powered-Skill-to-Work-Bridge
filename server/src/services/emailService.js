@@ -3,6 +3,7 @@ const nodemailer = require("nodemailer");
 // Render/free hosting often blocks outbound SMTP (587/465) → use HTTPS email provider in production.
 function getSendStrategy() {
   if (process.env.NODE_ENV === "production" && process.env.RESEND_API_KEY) return "resend";
+  if (process.env.NODE_ENV === "production") return "missing_resend";
   return "smtp";
 }
 
@@ -50,6 +51,10 @@ exports.sendOTPEmail = async (email, otp) => {
       const info = await sendViaResend(email, otp);
       console.log("✅ Email sent (Resend):", info?.id || info);
       return;
+    }
+
+    if (strategy === "missing_resend") {
+      throw new Error("Production email requires RESEND_API_KEY (SMTP is blocked on this host)");
     }
 
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
