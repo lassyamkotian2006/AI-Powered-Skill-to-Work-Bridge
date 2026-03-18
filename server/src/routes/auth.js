@@ -15,9 +15,14 @@ const { requireAuth } = require('../middleware/auth');
 const config = require('../config/env');
 const otpService = require('../services/otpService');
 const dbService = require('../services/supabaseService');
+const { generateOTP } = require('../utils/generateOTP');
+const { sendOTPEmail } = require('../services/emailService');
 
 const router = express.Router();
 const isProduction = process.env.NODE_ENV === 'production';
+
+// In-memory OTP store for /auth/send-otp + /auth/verify-otp
+const otpStore = {};
 
 /**
  * GET /auth/github
@@ -332,6 +337,50 @@ function generateState() {
     return Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15);
 }
+
+/**
+ * POST /auth/send-otp
+ * Sends a 6-digit OTP to the user's email
+ */
+router.post("/send-otp", async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const otp = generateOTP();
+
+        otpStore[email] = {
+            otp,
+            expires: Date.now() + 10 * 60 * 1000
+        };
+
+        await sendOTPEmail(email, otp);
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false });
+    }
+});
+
+/**
+ * POST /auth/verify-otp
+ * Verifies a 6-digit OTP
+ */
+router.post("/verify-otp", (req, res) => {
+    const { email, otp } = req.body;
+
+    const stored = otpStore[email];
+
+    if (!stored) return res.status(400).json({ success: false });
+
+    if (stored.expires < Date.now()) return res.status(400).json({ success: false });
+
+    if (stored.otp !== otp) return res.status(400).json({ success: false });
+
+    delete otpStore[email];
+
+    res.json({ success: true });
+});
 
 /**
  * POST /auth/otp/send
