@@ -373,7 +373,8 @@ function LoginPage({ onLogin }) {
         const res = await fetch(`${API_URL}/auth/reset-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otp, newPassword })
+          body: JSON.stringify({ email, code: otp, newPassword }),
+          credentials: 'include'
         })
         const data = await res.json()
         if (res.ok) {
@@ -389,7 +390,8 @@ function LoginPage({ onLogin }) {
         const res = await fetch(`${API_URL}/auth/otp/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otp })
+          body: JSON.stringify({ email, code: otp }),
+          credentials: 'include'
         })
         if (res.ok) {
           window.location.reload()
@@ -588,7 +590,36 @@ function LoginPage({ onLogin }) {
                 {loading ? 'Verifying...' : (newPassword ? 'Reset & Sign In' : 'Verify & Proceed')}
                 <span className="material-symbols-outlined">verified_user</span>
               </button>
-              <button type="button" className="back-to-login" onClick={() => setMode('login')}>Back to Login</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                <button type="button" className="back-to-login" onClick={() => setMode('login')}>Back to Login</button>
+                <button
+                  type="button"
+                  className="back-to-login"
+                  disabled={loading}
+                  onClick={async () => {
+                    setLoading(true)
+                    setError('')
+                    try {
+                      const res = await fetch(`${API_URL}/auth/otp/send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email }),
+                        credentials: 'include'
+                      })
+                      if (res.ok) {
+                        setError('New code sent to your email.')
+                      } else {
+                        setError('Failed to resend code.')
+                      }
+                    } catch {
+                      setError('Connection error')
+                    }
+                    setLoading(false)
+                  }}
+                >
+                  Resend Code
+                </button>
+              </div>
             </form>
           )}
 

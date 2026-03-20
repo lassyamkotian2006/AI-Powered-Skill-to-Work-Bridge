@@ -189,4 +189,8 @@ app.listen(config.port, () => {
     console.log(`🌐 Client URL: ${config.clientUrl}`);
     console.log('===========================================');
     console.log('');
+
+    // Verify email SMTP connection (non-blocking)
+    const { verifyConnection } = require('./services/emailService');
+    verifyConnection();
 });

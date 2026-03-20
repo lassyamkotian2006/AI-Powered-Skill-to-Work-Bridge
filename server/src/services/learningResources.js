@@ -248,6 +248,51 @@ const resources = {
     "Distributed Systems": {
         title: "Distributed Systems Fundamentals",
         url: "https://www.youtube.com/watch?v=UEAMfLPZZhE"
+    },
+
+    "Design Systems": {
+        title: "Design Systems Full Course",
+        url: "https://www.youtube.com/watch?v=Dtd40cHQQlk"
+    },
+
+    "Next.js": {
+        title: "Next.js Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=ZVnjOPwW4ZA"
+    },
+
+    "Hooks": {
+        title: "React Hooks Tutorial",
+        url: "https://www.youtube.com/watch?v=TNhaISOUy6Q"
+    },
+
+    "NumPy": {
+        title: "NumPy Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=QUT1VHiLmmI"
+    },
+
+    "C++": {
+        title: "C++ Full Course for Beginners",
+        url: "https://www.youtube.com/watch?v=vLnPwxZdW4Y"
+    },
+
+    "Game Engines": {
+        title: "Unity Game Development Tutorial",
+        url: "https://www.youtube.com/watch?v=gB1F9G0JXOo"
+    },
+
+    "3D Mathematics": {
+        title: "3D Math for Game Developers",
+        url: "https://www.youtube.com/watch?v=d4EgbgTm0Bg"
+    },
+
+    "Physics Simulation": {
+        title: "Physics for Game Development",
+        url: "https://www.youtube.com/watch?v=lS_qeBy3aQI"
+    },
+
+    "Graphics Programming": {
+        title: "Graphics Programming Tutorial",
+        url: "https://www.youtube.com/watch?v=45MIykWJ-C4"
     }
 
 };

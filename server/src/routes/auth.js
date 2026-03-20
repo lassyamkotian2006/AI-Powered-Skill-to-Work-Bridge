@@ -400,14 +400,19 @@ router.post('/otp/send', async (req, res) => {
     }
 
     try {
-        await otpService.generateOTP(email);
+        const result = await otpService.generateOTP(email);
 
         // Store email in session as "pending"
         req.session.pendingEmail = email;
         req.session.otpVerified = false;
 
-        console.log(`✅ OTP process initiated for ${email}`);
-        res.json({ success: true, message: 'OTP sent successfully' });
+        if (result.emailSent) {
+            console.log(`✅ OTP email sent to ${email}`);
+            res.json({ success: true, message: 'Verification code sent to your email' });
+        } else {
+            console.warn(`⚠️ OTP generated for ${email} but email was NOT delivered`);
+            res.json({ success: true, emailSent: false, message: 'OTP generated but email delivery failed. Check server logs.' });
+        }
     } catch (err) {
         console.error('❌ Error in /otp/send:', err);
         res.status(500).json({ error: 'Internal server error', details: err.message });

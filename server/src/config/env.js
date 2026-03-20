@@ -26,7 +26,9 @@ for (const envVar of requiredEnvVars) {
 // Log which optional services are configured
 const optionalServices = {
   'Supabase DB': !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY),
-  'Groq AI': !!process.env.GROQ_API_KEY
+  'Groq AI': !!process.env.GROQ_API_KEY,
+  'Resend Email': !!process.env.RESEND_API_KEY,
+  'Email SMTP (fallback)': !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
 };
 
 console.log('');
@@ -65,6 +67,12 @@ module.exports = {
 
   // Groq AI
   groqApiKey: process.env.GROQ_API_KEY,
+
+  // Resend email
+  resend: {
+    apiKey: process.env.RESEND_API_KEY,
+    from: process.env.RESEND_FROM || 'SkillBridge <skilltoworkbridge@gmail.com>'
+  },
 
   // Server port
   port: process.env.PORT || 3000,
