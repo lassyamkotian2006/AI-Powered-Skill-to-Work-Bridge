@@ -24,9 +24,16 @@ const transporter = nodemailer.createTransport({
 /**
  * Send an email via the Resend HTTP API.
  * Uses native fetch (Node 18+).
+ *
+ * IMPORTANT: On Resend's free tier you can ONLY send from
+ * "onboarding@resend.dev".  To use a custom from address
+ * (e.g. skilltoworkbridge@gmail.com) you must first verify
+ * a domain in your Resend dashboard.
  */
 async function sendViaResend({ to, subject, text, html }) {
-  const from = process.env.RESEND_FROM || `SkillBridge <${process.env.EMAIL_USER || "skilltoworkbridge@gmail.com"}>`;
+  // Default to Resend's sandbox sender unless a verified domain is configured
+  const from = process.env.RESEND_FROM || "SkillBridge <onboarding@resend.dev>";
+  console.log(`📤 Resend: sending from "${from}" to "${to}"`);
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -45,6 +52,7 @@ async function sendViaResend({ to, subject, text, html }) {
 
   if (!res.ok) {
     const body = await res.text();
+    console.error(`❌ Resend API error ${res.status}:`, body);
     throw new Error(`Resend API ${res.status}: ${body}`);
   }
 
