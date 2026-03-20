@@ -301,6 +301,9 @@ function LoginPage({ onLogin }) {
   const [isResetFlow, setIsResetFlow] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
+  const [otpToken, setOtpToken] = useState('')
+  const [otpTimestamp, setOtpTimestamp] = useState(0)
+  const [isCodeVerified, setIsCodeVerified] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -317,12 +320,17 @@ function LoginPage({ onLogin }) {
       if (res.ok) {
         window.location.reload()
       } else if (data.needsVerification) {
-        await fetch(`${API_URL}/auth/otp/send`, {
+        const otpRes = await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
           credentials: 'include'
         })
+        const otpData = await otpRes.json()
+        if (otpData.token) {
+          setOtpToken(otpData.token)
+          setOtpTimestamp(otpData.timestamp)
+        }
         setMode('otp')
       } else {
         setError(data.error || 'Invalid credentials')
@@ -347,12 +355,17 @@ function LoginPage({ onLogin }) {
       })
       const data = await res.json()
       if (res.ok) {
-        await fetch(`${API_URL}/auth/otp/send`, {
+        const otpRes = await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
           credentials: 'include'
         })
+        const otpData = await otpRes.json()
+        if (otpData.token) {
+          setOtpToken(otpData.token)
+          setOtpTimestamp(otpData.timestamp)
+        }
         setMode('otp')
       } else {
         setError(data.error || 'Registration failed')
@@ -369,11 +382,12 @@ function LoginPage({ onLogin }) {
     setLoading(true)
     setError('')
     try {
-      if (mode === 'reset') {
+      if (isResetFlow && isCodeVerified) {
+        // Step 2: Submit new password with verified code
         const res = await fetch(`${API_URL}/auth/reset-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otp, newPassword }),
+          body: JSON.stringify({ email, code: otp, newPassword, token: otpToken, timestamp: otpTimestamp }),
           credentials: 'include'
         })
         const data = await res.json()
@@ -383,14 +397,32 @@ function LoginPage({ onLogin }) {
           setOtp('')
           setNewPassword('')
           setIsResetFlow(false)
+          setIsCodeVerified(false)
+          setOtpToken('')
+          setOtpTimestamp(0)
         } else {
           setError(data.error || 'Reset failed')
         }
-      } else {
+      } else if (isResetFlow) {
+        // Step 1: Verify code first (before showing password field)
         const res = await fetch(`${API_URL}/auth/otp/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otp }),
+          body: JSON.stringify({ email, code: otp, token: otpToken, timestamp: otpTimestamp }),
+          credentials: 'include'
+        })
+        if (res.ok) {
+          setIsCodeVerified(true)
+          setError('Code verified! Now enter your new password.')
+        } else {
+          setError('Invalid verification code')
+        }
+      } else {
+        // Signup / login verification
+        const res = await fetch(`${API_URL}/auth/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: otp, token: otpToken, timestamp: otpTimestamp }),
           credentials: 'include'
         })
         if (res.ok) {
@@ -413,11 +445,16 @@ function LoginPage({ onLogin }) {
       const res = await fetch(`${API_URL}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email }),
+        credentials: 'include'
       })
+      const data = await res.json()
       if (res.ok) {
+        setOtpToken(data.token || '')
+        setOtpTimestamp(data.timestamp || 0)
         setMode('otp')
         setIsResetFlow(true)
+        setIsCodeVerified(false)
         setError('Verification code sent to your email.')
       } else {
         setError('Failed to send reset code.')
@@ -448,7 +485,8 @@ function LoginPage({ onLogin }) {
           <p className="login-instruction">
             {mode === 'login' && 'Please fill in all fields to proceed.'}
             {mode === 'signup' && 'Create your account to start your journey.'}
-            {mode === 'otp' && 'Enter the 6-digit code sent to your email.'}
+            {mode === 'otp' && !isCodeVerified && 'Enter the 6-digit code sent to your email.'}
+            {mode === 'otp' && isCodeVerified && 'Create your new password.'}
             {mode === 'reset' && 'Verify your identity to reset your password.'}
           </p>
 
@@ -545,24 +583,27 @@ function LoginPage({ onLogin }) {
 
           {mode === 'otp' && (
             <form onSubmit={handleVerifyOTP}>
-              <div className="form-group-modern">
-                <label className="form-label-modern">VERIFICATION CODE</label>
-                <div className="input-field-modern">
-                  <span className="material-symbols-outlined input-icon-modern">shield</span>
-                  <input
-                    type="text"
-                    maxLength="6"
-                    placeholder="000000"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    style={{ letterSpacing: '0.5rem', textAlign: 'center' }}
-                    required
-                  />
+              {/* Show code field only if code not yet verified (or not in reset flow) */}
+              {!(isResetFlow && isCodeVerified) && (
+                <div className="form-group-modern">
+                  <label className="form-label-modern">VERIFICATION CODE</label>
+                  <div className="input-field-modern">
+                    <span className="material-symbols-outlined input-icon-modern">shield</span>
+                    <input
+                      type="text"
+                      maxLength="6"
+                      placeholder="000000"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      style={{ letterSpacing: '0.5rem', textAlign: 'center' }}
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* If in reset flow, we need the NEW password */}
-              {mode === 'otp' && isResetFlow && (
+              {/* Show new password field ONLY after code is verified in reset flow */}
+              {isResetFlow && isCodeVerified && (
                 <div className="form-group-modern">
                   <label className="form-label-modern">NEW PASSWORD</label>
                   <div className="input-field-modern">
@@ -572,7 +613,7 @@ function LoginPage({ onLogin }) {
                       placeholder="••••••••"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      required={mode === 'otp' && isResetFlow}
+                      required
                     />
                     <button
                       type="button"
@@ -587,38 +628,49 @@ function LoginPage({ onLogin }) {
               )}
 
               <button className="btn-signin-modern" type="submit" disabled={loading}>
-                {loading ? 'Verifying...' : (newPassword ? 'Reset & Sign In' : 'Verify & Proceed')}
-                <span className="material-symbols-outlined">verified_user</span>
+                {loading ? 'Processing...' : (
+                  isResetFlow && isCodeVerified ? 'Reset Password' :
+                    isResetFlow ? 'Verify Code' :
+                      'Verify & Proceed'
+                )}
+                <span className="material-symbols-outlined">
+                  {isResetFlow && isCodeVerified ? 'lock_reset' : 'verified_user'}
+                </span>
               </button>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                <button type="button" className="back-to-login" onClick={() => setMode('login')}>Back to Login</button>
-                <button
-                  type="button"
-                  className="back-to-login"
-                  disabled={loading}
-                  onClick={async () => {
-                    setLoading(true)
-                    setError('')
-                    try {
-                      const res = await fetch(`${API_URL}/auth/otp/send`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email }),
-                        credentials: 'include'
-                      })
-                      if (res.ok) {
-                        setError('New code sent to your email.')
-                      } else {
-                        setError('Failed to resend code.')
+                <button type="button" className="back-to-login" onClick={() => { setMode('login'); setIsResetFlow(false); setIsCodeVerified(false) }}>Back to Login</button>
+                {!(isResetFlow && isCodeVerified) && (
+                  <button
+                    type="button"
+                    className="back-to-login"
+                    disabled={loading}
+                    onClick={async () => {
+                      setLoading(true)
+                      setError('')
+                      try {
+                        const res = await fetch(`${API_URL}/auth/otp/send`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email }),
+                          credentials: 'include'
+                        })
+                        const data = await res.json()
+                        if (res.ok) {
+                          setOtpToken(data.token || '')
+                          setOtpTimestamp(data.timestamp || 0)
+                          setError('New code sent to your email.')
+                        } else {
+                          setError('Failed to resend code.')
+                        }
+                      } catch {
+                        setError('Connection error')
                       }
-                    } catch {
-                      setError('Connection error')
-                    }
-                    setLoading(false)
-                  }}
-                >
-                  Resend Code
-                </button>
+                      setLoading(false)
+                    }}
+                  >
+                    Resend Code
+                  </button>
+                )}
               </div>
             </form>
           )}

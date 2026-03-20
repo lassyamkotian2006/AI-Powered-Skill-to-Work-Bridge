@@ -1,85 +1,123 @@
 /**
  * OTP Service
  * -----------
- * Handles generation, storage, and verification of One-Time Passwords.
- * Delegates email sending to the shared emailService.
+ * Handles generation and verification of One-Time Passwords.
+ * Uses HMAC tokens for STATELESS verification that survives server restarts.
+ * Also keeps in-memory fallback for local development.
  * Codes expire after 10 minutes.
  */
 
-const otps = new Map();
+const crypto = require('crypto');
 const generateOTP = require('../utils/generateOTP');
 const { sendOTP: sendOTPEmail } = require('./emailService');
 
+// In-memory fallback (not reliable on Render free tier – server restarts wipe this)
+const otps = new Map();
+
+// Secret for HMAC signing – reuses SESSION_SECRET for convenience
+const HMAC_SECRET = process.env.SESSION_SECRET || 'skill-bridge-otp-secret';
+
+/**
+ * Create an HMAC token that encodes email + code + timestamp.
+ * This lets us verify the OTP without any server-side state.
+ */
+function createToken(email, code, timestamp) {
+    const payload = `${email}:${code}:${timestamp}`;
+    return crypto.createHmac('sha256', HMAC_SECRET).update(payload).digest('hex');
+}
+
 /**
  * Generate a 6-digit OTP for a given email and send it via email.
- * Emails are normalized to lowercase.
+ * Returns { code, token, timestamp, emailSent }.
  */
 async function generateOTPForEmail(email) {
     if (!email) throw new Error("Email is required for OTP generation");
 
     const normalizedEmail = email.trim().toLowerCase();
     const code = generateOTP();
-    const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const timestamp = Date.now();
 
-    otps.set(normalizedEmail, { code, expiry });
+    // Create HMAC token for stateless verification
+    const token = createToken(normalizedEmail, code, timestamp);
 
-    // Always log to console as a fallback / debugging aid
+    // Also store in memory as fallback (works on local dev)
+    otps.set(normalizedEmail, { code, expiry: timestamp + 10 * 60 * 1000 });
+
     console.log(`\n-----------------------------------------`);
-    console.log(`🔐 SECURITY: OTP for ${normalizedEmail} is: ${code}`);
+    console.log(`🔐 OTP for ${normalizedEmail}: ${code}`);
     console.log(`-----------------------------------------\n`);
 
     let emailSent = false;
 
-    // Send actual email if any provider is configured (Resend or SMTP)
     if (process.env.RESEND_API_KEY || (process.env.EMAIL_USER && process.env.EMAIL_PASS)) {
         try {
             await sendOTPEmail(normalizedEmail, code);
             emailSent = true;
-            console.log(`📧 Email sent successfully to ${normalizedEmail}`);
+            console.log(`📧 Email sent to ${normalizedEmail}`);
         } catch (error) {
-            console.error(`❌ Failed to send email to ${normalizedEmail}:`, error.message);
+            console.error(`❌ Email failed for ${normalizedEmail}:`, error.message);
         }
     } else {
-        console.warn(`⚠️  Email not configured. OTP for ${normalizedEmail} logged to console only.`);
+        console.warn(`⚠️ No email provider. OTP logged to console only.`);
     }
 
-    return { code, emailSent };
+    return { code, token, timestamp, emailSent };
 }
 
 /**
- * Verify an OTP for a given email.
- * Emails are normalized to lowercase.
- * Returns true if the code is valid and has not expired. One-time use.
+ * Verify an OTP.
+ * Method 1: HMAC token verification (stateless – survives server restarts)
+ * Method 2: In-memory lookup (fallback for old callers / local dev)
  */
-function verifyOTP(email, code) {
+function verifyOTP(email, code, token, timestamp) {
     if (!email || !code) return false;
 
     const normalizedEmail = email.trim().toLowerCase();
+    const codeStr = String(code).trim();
+
+    console.log(`🔑 Verify OTP: email=${normalizedEmail}, code=${codeStr}, hasToken=${!!token}`);
+
+    // ── Method 1: HMAC token (preferred) ─────────────────────────────
+    if (token && timestamp) {
+        const ts = Number(timestamp);
+        const elapsed = Date.now() - ts;
+
+        if (elapsed > 10 * 60 * 1000) {
+            console.log(`❌ Token expired (${Math.round(elapsed / 1000)}s)`);
+            return false;
+        }
+
+        const expectedToken = createToken(normalizedEmail, codeStr, ts);
+        const isValid = token === expectedToken;
+
+        if (isValid) {
+            console.log(`✅ OTP verified (HMAC)`);
+            otps.delete(normalizedEmail);
+            return true;
+        }
+        console.log(`❌ HMAC mismatch`);
+    }
+
+    // ── Method 2: In-memory fallback ─────────────────────────────────
     const record = otps.get(normalizedEmail);
-
-    console.log(`🔑 Verification attempt: ${normalizedEmail} with code ${code}`);
-
     if (!record) {
-        console.log(`❌ No OTP record found for ${normalizedEmail}`);
+        console.log(`❌ No in-memory record for ${normalizedEmail}`);
         return false;
     }
 
     if (Date.now() > record.expiry) {
-        console.log(`❌ OTP for ${normalizedEmail} has expired`);
+        console.log(`❌ In-memory OTP expired`);
         otps.delete(normalizedEmail);
         return false;
     }
 
-    // Force string comparison to avoid type issues
-    const isMatch = String(record.code) === String(code);
-
-    if (isMatch) {
-        console.log(`✅ OTP match for ${normalizedEmail}`);
-        otps.delete(normalizedEmail); // One-time use
+    if (String(record.code) === codeStr) {
+        console.log(`✅ OTP verified (in-memory)`);
+        otps.delete(normalizedEmail);
         return true;
     }
 
-    console.log(`❌ OTP mismatch for ${normalizedEmail}. Expected ${record.code}, got ${code}`);
+    console.log(`❌ Code mismatch. Expected ${record.code}, got ${codeStr}`);
     return false;
 }
 

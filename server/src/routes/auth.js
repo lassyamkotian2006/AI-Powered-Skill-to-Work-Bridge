@@ -270,9 +270,9 @@ router.post('/login', async (req, res) => {
  * Reset password using OTP
  */
 router.post('/reset-password', async (req, res) => {
-    const { email, code, newPassword } = req.body;
+    const { email, code, newPassword, token, timestamp } = req.body;
 
-    if (!otpService.verifyOTP(email, code)) {
+    if (!otpService.verifyOTP(email, code, token, timestamp)) {
         return res.status(401).json({ error: 'Invalid or expired code' });
     }
 
@@ -348,7 +348,7 @@ router.post("/send-otp", async (req, res) => {
         if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
 
         const result = await otpService.generateOTP(email);
-        res.json({ success: true, emailSent: result.emailSent });
+        res.json({ success: true, emailSent: result.emailSent, token: result.token, timestamp: result.timestamp });
     } catch (err) {
         console.error('❌ Error in /send-otp:', err);
         res.status(500).json({ success: false });
@@ -360,10 +360,10 @@ router.post("/send-otp", async (req, res) => {
  * Verifies a 6-digit OTP
  */
 router.post("/verify-otp", (req, res) => {
-    const { email, otp } = req.body;
+    const { email, otp, token, timestamp } = req.body;
     if (!email || !otp) return res.status(400).json({ success: false });
 
-    if (otpService.verifyOTP(email, otp)) {
+    if (otpService.verifyOTP(email, otp, token, timestamp)) {
         res.json({ success: true });
     } else {
         res.status(400).json({ success: false });
@@ -393,10 +393,10 @@ router.post('/otp/send', async (req, res) => {
 
         if (result.emailSent) {
             console.log(`✅ OTP email sent to ${email}`);
-            res.json({ success: true, message: 'Verification code sent to your email' });
+            res.json({ success: true, token: result.token, timestamp: result.timestamp, message: 'Verification code sent to your email' });
         } else {
             console.warn(`⚠️ OTP generated for ${email} but email was NOT delivered`);
-            res.json({ success: true, emailSent: false, message: 'OTP generated but email delivery failed. Check server logs.' });
+            res.json({ success: true, emailSent: false, token: result.token, timestamp: result.timestamp, message: 'OTP generated but email delivery failed.' });
         }
     } catch (err) {
         console.error('❌ Error in /otp/send:', err);
@@ -410,7 +410,7 @@ router.post('/otp/send', async (req, res) => {
  */
 router.post('/otp/verify', async (req, res) => {
     console.log('🔑 Request to /otp/verify:', req.body);
-    let { email, code } = req.body;
+    let { email, code, token, timestamp } = req.body;
     email = email?.trim();
 
     if (!email || !code) {
@@ -418,7 +418,7 @@ router.post('/otp/verify', async (req, res) => {
     }
 
     try {
-        const isValid = otpService.verifyOTP(email, code);
+        const isValid = otpService.verifyOTP(email, code, token, timestamp);
 
         if (isValid) {
             req.session.otpVerified = true;
