@@ -13,16 +13,16 @@ const { Octokit } = require('octokit');
 const bcrypt = require('bcrypt');
 const { requireAuth } = require('../middleware/auth');
 const config = require('../config/env');
+// Service imports
 const otpService = require('../services/otpService');
 const dbService = require('../services/supabaseService');
-const { generateOTP } = require('../utils/generateOTP');
-const { sendOTPEmail } = require('../services/emailService');
+
 
 const router = express.Router();
 const isProduction = process.env.NODE_ENV === 'production';
 
-// In-memory OTP store for /auth/send-otp + /auth/verify-otp
-const otpStore = {};
+// No in-memory store here, we use otpService instead
+
 
 /**
  * GET /auth/github
@@ -345,22 +345,12 @@ function generateState() {
 router.post("/send-otp", async (req, res) => {
     try {
         const { email } = req.body;
+        if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
 
-        const otp = generateOTP();
-
-        otpStore[email] = {
-            otp,
-            expires: Date.now() + 10 * 60 * 1000
-        };
-
-        // Always show OTP in logs for urgent debugging / manual fallback
-        console.log("🔐 OTP GENERATED:", { email, otp });
-
-        await sendOTPEmail(email, otp);
-
-        res.json({ success: true });
+        const result = await otpService.generateOTP(email);
+        res.json({ success: true, emailSent: result.emailSent });
     } catch (err) {
-        console.error(err);
+        console.error('❌ Error in /send-otp:', err);
         res.status(500).json({ success: false });
     }
 });
@@ -371,18 +361,13 @@ router.post("/send-otp", async (req, res) => {
  */
 router.post("/verify-otp", (req, res) => {
     const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ success: false });
 
-    const stored = otpStore[email];
-
-    if (!stored) return res.status(400).json({ success: false });
-
-    if (stored.expires < Date.now()) return res.status(400).json({ success: false });
-
-    if (stored.otp !== otp) return res.status(400).json({ success: false });
-
-    delete otpStore[email];
-
-    res.json({ success: true });
+    if (otpService.verifyOTP(email, otp)) {
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ success: false });
+    }
 });
 
 /**
