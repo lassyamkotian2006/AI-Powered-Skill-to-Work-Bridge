@@ -27,9 +27,9 @@ services:
       - key: CALLBACK_URL
         sync: false
       - key: CLIENT_URL
-        value: /
+        sync: false
       - key: AI_SERVICE_URL
-        value: http://skill-bridge-ai
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
