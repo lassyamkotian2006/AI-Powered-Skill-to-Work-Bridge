@@ -92,7 +92,8 @@ function verifyOTP(email, code, token, timestamp) {
 
         if (isValid) {
             console.log(`✅ OTP verified (HMAC)`);
-            otps.delete(normalizedEmail);
+            // Don't delete in-memory record — allow re-verification within the
+            // validity window (needed for reset flow: verify-code then reset-password)
             return true;
         }
         console.log(`❌ HMAC mismatch`);
@@ -113,7 +114,7 @@ function verifyOTP(email, code, token, timestamp) {
 
     if (String(record.code) === codeStr) {
         console.log(`✅ OTP verified (in-memory)`);
-        otps.delete(normalizedEmail);
+        // Don't delete — allow re-verification within the validity window
         return true;
     }
 

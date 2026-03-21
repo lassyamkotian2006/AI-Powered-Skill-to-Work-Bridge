@@ -404,18 +404,14 @@ function LoginPage({ onLogin }) {
           setError(data.error || 'Reset failed')
         }
       } else if (isResetFlow) {
-        // Step 1: Verify code first (before showing password field)
-        const res = await fetch(`${API_URL}/auth/otp/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otp, token: otpToken, timestamp: otpTimestamp }),
-          credentials: 'include'
-        })
-        if (res.ok) {
-          setIsCodeVerified(true)
-          setError('Code verified! Now enter your new password.')
+        // Step 1: Don't call /otp/verify here — just show the password field.
+        // The code will be verified by /reset-password in Step 2.
+        // This avoids double-verification which consumed the OTP.
+        if (!otp || otp.length !== 6) {
+          setError('Please enter the 6-digit code from your email.')
         } else {
-          setError('Invalid verification code')
+          setIsCodeVerified(true)
+          setError('Now enter your new password.')
         }
       } else {
         // Signup / login verification
