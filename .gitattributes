@@ -1,0 +1,8 @@
+# Force LF line endings for JavaScript and JSX files
+# This prevents SyntaxError on Linux servers (e.g. Render) caused by \r characters
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
