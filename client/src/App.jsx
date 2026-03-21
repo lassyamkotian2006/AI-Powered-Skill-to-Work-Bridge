@@ -465,7 +465,11 @@ function LoginPage({ onLogin }) {
         setMode('otp')
         setIsResetFlow(true)
         setIsCodeVerified(false)
-        setError('Verification code sent to your email.')
+        if (data.emailSent === false) {
+          setError('Code generated but email delivery failed. Check server console for the code.')
+        } else {
+          setError('Verification code sent to your email. Check spam folder too.')
+        }
       } else {
         setError('Failed to send reset code.')
       }
