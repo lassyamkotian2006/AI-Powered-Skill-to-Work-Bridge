@@ -122,22 +122,7 @@ const sendOTPEmail = async (email, code) => {
   console.log("📨 Sending OTP to:", email);
   const { subject, text, html } = buildOTPEmail(code);
 
-  // 1️⃣  Try Resend (primary) — NOTE: Resend free tier can only send to the
-  //     account owner's email. To send to ANY address you need a verified domain
-  //     or use SMTP instead.
-  if (process.env.RESEND_API_KEY) {
-    try {
-      await sendViaResend({ to: email, subject, text, html });
-      console.log(`📧 OTP sent via Resend to ${email}`);
-      return;
-    } catch (err) {
-      console.error(`❌ Resend failed for ${email}:`, err.message);
-      console.log('   ⚠️  Resend free tier only delivers to the account owner email.');
-      console.log('   Falling back to SMTP...');
-    }
-  }
-
-  // 2️⃣  Fall back to SMTP
+  // 1️⃣  Try Gmail SMTP first (works for ALL recipients)
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     try {
       const info = await transporter.sendMail({
@@ -151,6 +136,19 @@ const sendOTPEmail = async (email, code) => {
       return;
     } catch (err) {
       console.error("❌ SMTP FAILED:", err.message);
+      console.log('   Falling back to Resend...');
+    }
+  }
+
+  // 2️⃣  Fall back to Resend — NOTE: free tier can only send to the account
+  //     owner's email unless you verify a custom domain.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await sendViaResend({ to: email, subject, text, html });
+      console.log(`📧 OTP sent via Resend to ${email}`);
+      return;
+    } catch (err) {
+      console.error(`❌ Resend also failed for ${email}:`, err.message);
       throw err;
     }
   }

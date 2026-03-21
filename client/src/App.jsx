@@ -298,9 +298,11 @@ function LoginPage({ onLogin }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [isResetFlow, setIsResetFlow] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [otpToken, setOtpToken] = useState('')
   const [otpTimestamp, setOtpTimestamp] = useState(0)
   const [isCodeVerified, setIsCodeVerified] = useState(false)
@@ -383,6 +385,17 @@ function LoginPage({ onLogin }) {
     setError('')
     try {
       if (isResetFlow && isCodeVerified) {
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+          setError('Passwords do not match.')
+          setLoading(false)
+          return
+        }
+        if (newPassword.length < 6) {
+          setError('Password must be at least 6 characters.')
+          setLoading(false)
+          return
+        }
         // Step 2: Submit new password with verified code
         const res = await fetch(`${API_URL}/auth/reset-password`, {
           method: 'POST',
@@ -396,6 +409,7 @@ function LoginPage({ onLogin }) {
           setError('Password reset successful! You can now log in.')
           setOtp('')
           setNewPassword('')
+          setConfirmPassword('')
           setIsResetFlow(false)
           setIsCodeVerified(false)
           setOtpToken('')
@@ -598,29 +612,55 @@ function LoginPage({ onLogin }) {
                 </div>
               )}
 
-              {/* Show new password field ONLY after code is verified in reset flow */}
+              {/* Show new password + confirm password fields ONLY after code is verified in reset flow */}
               {isResetFlow && isCodeVerified && (
-                <div className="form-group-modern">
-                  <label className="form-label-modern">NEW PASSWORD</label>
-                  <div className="input-field-modern">
-                    <span className="material-symbols-outlined input-icon-modern">lock</span>
-                    <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      className="password-toggle"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      tabIndex={-1}
-                    >
-                      <span className="material-symbols-outlined">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
-                    </button>
+                <>
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">NEW PASSWORD</label>
+                    <div className="input-field-modern">
+                      <span className="material-symbols-outlined input-icon-modern">lock</span>
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        tabIndex={-1}
+                      >
+                        <span className="material-symbols-outlined">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                  <div className="form-group-modern">
+                    <label className="form-label-modern">CONFIRM PASSWORD</label>
+                    <div className="input-field-modern">
+                      <span className="material-symbols-outlined input-icon-modern">lock_reset</span>
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        tabIndex={-1}
+                      >
+                        <span className="material-symbols-outlined">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
+                      </button>
+                    </div>
+                    {confirmPassword && newPassword !== confirmPassword && (
+                      <p style={{ color: '#e53e3e', fontSize: '0.8rem', marginTop: '0.3rem' }}>Passwords do not match</p>
+                    )}
+                  </div>
+                </>
               )}
 
               <button className="btn-signin-modern" type="submit" disabled={loading}>
