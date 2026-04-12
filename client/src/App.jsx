@@ -469,6 +469,10 @@ function LoginPage({ onLogin }) {
           setError('Connection error. Please try again.')
         }
       }
+    } catch (err) {
+      setError('An error occurred. Please try again.')
+      console.error('Verify OTP error:', err)
+    }
     setLoading(false)
   }
 

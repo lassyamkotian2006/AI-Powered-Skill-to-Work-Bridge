@@ -140,8 +140,24 @@ app.use('/ai', aiRoutes);
 // Serve Frontend (Production)
 // ===========================================
 
+const fs = require('fs');
+
 // Serve static files from the React app build folder
 const clientDistPath = path.join(__dirname, '../../client/dist');
+const indexHtmlPath = path.join(clientDistPath, 'index.html');
+
+// Log the resolved path and check if it exists at startup
+console.log(`📂 Client dist path: ${clientDistPath}`);
+console.log(`📄 Index HTML path: ${indexHtmlPath}`);
+console.log(`📦 Client dist exists: ${fs.existsSync(clientDistPath)}`);
+console.log(`📄 Index.html exists: ${fs.existsSync(indexHtmlPath)}`);
+
+if (fs.existsSync(clientDistPath)) {
+    // List files in dist for debugging
+    const files = fs.readdirSync(clientDistPath);
+    console.log(`📁 Files in client/dist: ${files.join(', ')}`);
+}
+
 app.use(express.static(clientDistPath));
 
 /**
@@ -152,7 +168,24 @@ app.use(express.static(clientDistPath));
 app.get('*', (req, res) => {
     // Only serve index.html for GET requests that expect HTML
     if (req.accepts('html')) {
-        res.sendFile(path.join(clientDistPath, 'index.html'));
+        if (fs.existsSync(indexHtmlPath)) {
+            res.sendFile(indexHtmlPath);
+        } else {
+            res.status(503).send(`
+                <html>
+                <head><title>Skill Bridge - Building</title></head>
+                <body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0a0a0a; color: #fff;">
+                    <div style="text-align: center; max-width: 500px;">
+                        <h1>🌉 Skill-to-Work Bridge</h1>
+                        <p>The frontend is not built yet or the build failed.</p>
+                        <p style="color: #888;">If this is a fresh deployment, the build may still be in progress. Please wait a few minutes and try again.</p>
+                        <p style="color: #666; font-size: 0.9em;">Expected path: ${clientDistPath}</p>
+                        <a href="/api/health" style="color: #4ade80;">Check API Health</a>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
     } else {
         res.status(404).json({
             error: 'Not Found',
