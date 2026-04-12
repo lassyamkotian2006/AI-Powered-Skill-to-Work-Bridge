@@ -38,13 +38,15 @@ async function saveUser(githubUser, accessToken) {
             name: githubUser.name,
             avatar_url: githubUser.avatar_url,
             profile_url: githubUser.html_url,
-            access_token: accessToken,
             updated_at: new Date().toISOString()
         }, { onConflict: 'github_id' })
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        console.error('❌ saveUser error:', error);
+        throw error;
+    }
     return data;
 }
 
@@ -106,6 +108,8 @@ async function getUserByEmail(email) {
 async function createUser(email, passwordHash, username) {
     if (!supabase) throw new Error('Database not configured');
 
+    console.log(`📝 Creating user: ${email}, username: ${username || email.split('@')[0]}`);
+
     const { data, error } = await supabase
         .from('users')
         .insert({
@@ -117,7 +121,11 @@ async function createUser(email, passwordHash, username) {
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        console.error('❌ createUser error:', error);
+        throw error;
+    }
+    console.log(`✅ User created: ${data.id}`);
     return data;
 }
 
@@ -191,20 +199,26 @@ async function updateUserTargetRole(userId, targetRole) {
 async function linkGitHubAccount(userId, githubUser, accessToken) {
     if (!supabase) throw new Error('Database not configured');
 
+    console.log(`🔗 Linking GitHub account ${githubUser.login} to user ${userId}`);
+
     const { data, error } = await supabase
         .from('users')
         .update({
             github_id: githubUser.id,
+            username: githubUser.login,
+            name: githubUser.name,
             avatar_url: githubUser.avatar_url,
             profile_url: githubUser.html_url,
-            access_token: accessToken,
             updated_at: new Date().toISOString()
         })
         .eq('id', userId)
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        console.error('❌ linkGitHubAccount error:', error);
+        throw error;
+    }
     return data;
 }
 
