@@ -1,25 +1,23 @@
 /**
- * OTP Service
+ * OTP Service - FIXED VERSION
  * -----------
  * Handles generation and verification of One-Time Passwords.
  * Uses HMAC tokens for STATELESS verification that survives server restarts.
- * Also keeps in-memory fallback for local development.
  * Codes expire after 10 minutes.
+ * IMPORTANT: OTP can be verified multiple times within validity window
+ * (needed for reset flow: verify-code → then reset-password)
  */
 
 const crypto = require('crypto');
 const generateOTP = require('../utils/generateOTP');
 const { sendOTP: sendOTPEmail } = require('./emailService');
 
-// In-memory fallback (not reliable on Render free tier – server restarts wipe this)
-const otps = new Map();
-
-// Secret for HMAC signing – reuses SESSION_SECRET for convenience
+// Secret for HMAC signing
 const HMAC_SECRET = process.env.SESSION_SECRET || 'skill-bridge-otp-secret';
+const OTP_EXPIRY_MINUTES = 10;
 
 /**
  * Create an HMAC token that encodes email + code + timestamp.
- * This lets us verify the OTP without any server-side state.
  */
 function createToken(email, code, timestamp) {
     const payload = `${email}:${code}:${timestamp}`;
@@ -28,7 +26,7 @@ function createToken(email, code, timestamp) {
 
 /**
  * Generate a 6-digit OTP for a given email and send it via email.
- * Returns { code, token, timestamp, emailSent }.
+ * Returns { code, token, timestamp, emailSent, deliveryMethod }.
  */
 async function generateOTPForEmail(email) {
     if (!email) throw new Error("Email is required for OTP generation");
@@ -40,89 +38,97 @@ async function generateOTPForEmail(email) {
     // Create HMAC token for stateless verification
     const token = createToken(normalizedEmail, code, timestamp);
 
-    // Also store in memory as fallback (works on local dev)
-    otps.set(normalizedEmail, { code, expiry: timestamp + 10 * 60 * 1000 });
-
     console.log(`\n-----------------------------------------`);
     console.log(`🔐 OTP for ${normalizedEmail}: ${code}`);
+    console.log(`   Token: ${token.substring(0, 20)}...`);
+    console.log(`   Expires: ${new Date(timestamp + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString()}`);
     console.log(`-----------------------------------------\n`);
 
     let emailSent = false;
+    let deliveryMethod = 'console';
 
-    if (process.env.RESEND_API_KEY || (process.env.EMAIL_USER && process.env.EMAIL_PASS)) {
+    // Try email delivery
+    if (process.env.BREVO_API_KEY || process.env.RESEND_API_KEY || 
+        (process.env.EMAIL_USER && process.env.EMAIL_PASS)) {
         try {
             await sendOTPEmail(normalizedEmail, code);
             emailSent = true;
-            console.log(`📧 Email sent to ${normalizedEmail}`);
+            
+            if (process.env.BREVO_API_KEY) deliveryMethod = 'brevo';
+            else if (process.env.RESEND_API_KEY) deliveryMethod = 'resend';
+            else deliveryMethod = 'gmail-smtp';
+            
+            console.log(`📧 Email sent via ${deliveryMethod} to ${normalizedEmail}`);
         } catch (error) {
-            console.error(`❌ Email failed for ${normalizedEmail}:`, error.message);
+            console.error(`❌ Email delivery failed for ${normalizedEmail}:`, error.message);
+            deliveryMethod = 'failed';
         }
     } else {
-        console.warn(`⚠️ No email provider. OTP logged to console only.`);
+        console.warn(`⚠️ No email provider configured. OTP only in console.`);
     }
 
-    return { code, token, timestamp, emailSent };
+    return { code, token, timestamp, emailSent, deliveryMethod };
 }
 
 /**
- * Verify an OTP.
- * Method 1: HMAC token verification (stateless – survives server restarts)
- * Method 2: In-memory lookup (fallback for old callers / local dev)
+ * Verify an OTP using HMAC token (stateless - survives server restarts).
+ * NOTE: Does NOT consume the OTP - can be verified multiple times within validity window.
  */
 function verifyOTP(email, code, token, timestamp) {
-    if (!email || !code) return false;
+    if (!email || !code) {
+        console.log('❌ verifyOTP: Missing email or code');
+        return false;
+    }
+
+    if (!token || !timestamp) {
+        console.log('❌ verifyOTP: Missing token or timestamp');
+        return false;
+    }
 
     const normalizedEmail = email.trim().toLowerCase();
     const codeStr = String(code).trim();
+    const ts = Number(timestamp);
 
-    console.log(`🔑 Verify OTP: email=${normalizedEmail}, code=${codeStr}, hasToken=${!!token}`);
-
-    // ── Method 1: HMAC token (preferred) ─────────────────────────────
-    if (token && timestamp) {
-        const ts = Number(timestamp);
-        const elapsed = Date.now() - ts;
-
-        if (elapsed > 10 * 60 * 1000) {
-            console.log(`❌ Token expired (${Math.round(elapsed / 1000)}s)`);
-            return false;
-        }
-
-        const expectedToken = createToken(normalizedEmail, codeStr, ts);
-        const isValid = token === expectedToken;
-
-        if (isValid) {
-            console.log(`✅ OTP verified (HMAC)`);
-            // Don't delete in-memory record — allow re-verification within the
-            // validity window (needed for reset flow: verify-code then reset-password)
-            return true;
-        }
-        console.log(`❌ HMAC mismatch`);
-    }
-
-    // ── Method 2: In-memory fallback ─────────────────────────────────
-    const record = otps.get(normalizedEmail);
-    if (!record) {
-        console.log(`❌ No in-memory record for ${normalizedEmail}`);
+    // Check expiration
+    const elapsed = Date.now() - ts;
+    if (elapsed > OTP_EXPIRY_MINUTES * 60 * 1000) {
+        console.log(`❌ OTP expired (${Math.round(elapsed / 1000)}s elapsed, max ${OTP_EXPIRY_MINUTES * 60}s)`);
         return false;
     }
 
-    if (Date.now() > record.expiry) {
-        console.log(`❌ In-memory OTP expired`);
-        otps.delete(normalizedEmail);
+    if (elapsed < 0) {
+        console.log('❌ OTP timestamp is in the future');
         return false;
     }
 
-    if (String(record.code) === codeStr) {
-        console.log(`✅ OTP verified (in-memory)`);
-        // Don't delete — allow re-verification within the validity window
-        return true;
+    // Verify HMAC token
+    const expectedToken = createToken(normalizedEmail, codeStr, ts);
+    const isValid = token === expectedToken;
+
+    if (isValid) {
+        console.log(`✅ OTP verified for ${normalizedEmail}`);
+    } else {
+        console.log(`❌ OTP verification failed - HMAC mismatch`);
     }
 
-    console.log(`❌ Code mismatch. Expected ${record.code}, got ${codeStr}`);
-    return false;
+    return isValid;
+}
+
+/**
+ * Validate OTP format without full verification
+ */
+function validateOTPFormat(email, code) {
+    if (!email || !email.includes('@')) {
+        return { valid: false, reason: 'Invalid email format' };
+    }
+    if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+        return { valid: false, reason: 'Code must be exactly 6 digits' };
+    }
+    return { valid: true, reason: null };
 }
 
 module.exports = {
     generateOTP: generateOTPForEmail,
-    verifyOTP
+    verifyOTP,
+    validateOTPFormat
 };

@@ -286,7 +286,7 @@ function App() {
 }
 
 // =============================================
-// LOGIN PAGE
+// LOGIN PAGE - FIXED OTP FLOW
 // =============================================
 
 function LoginPage({ onLogin }) {
@@ -294,8 +294,9 @@ function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [otp, setOtp] = useState('')
-  const [mode, setMode] = useState('login') // 'login' | 'signup' | 'otp' | 'reset'
+  const [mode, setMode] = useState('login')
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -307,10 +308,17 @@ function LoginPage({ onLogin }) {
   const [otpTimestamp, setOtpTimestamp] = useState(0)
   const [isCodeVerified, setIsCodeVerified] = useState(false)
 
+  // Clear messages on mode change
+  useEffect(() => {
+    setError('')
+    setSuccessMessage('')
+  }, [mode])
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -334,20 +342,26 @@ function LoginPage({ onLogin }) {
           setOtpTimestamp(otpData.timestamp)
         }
         setMode('otp')
+        if (otpData.emailSent === false) {
+          setError('Email delivery failed. Check server console for the code.')
+        } else {
+          setError('')
+          setSuccessMessage('Verification code sent to your email.')
+        }
       } else {
         setError(data.error || 'Invalid credentials')
       }
     } catch (err) {
       setError('Connection error')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   const handleSignup = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -369,23 +383,28 @@ function LoginPage({ onLogin }) {
           setOtpTimestamp(otpData.timestamp)
         }
         setMode('otp')
+        if (otpData.emailSent === false) {
+          setError('Email delivery failed. Check server console for the code.')
+        } else {
+          setSuccessMessage('Verification code sent to your email.')
+        }
       } else {
         setError(data.error || 'Registration failed')
       }
     } catch (err) {
       setError('Connection error')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   const handleVerifyOTP = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       if (isResetFlow && isCodeVerified) {
-        // Validate passwords match
+        // RESET FLOW STEP 2: Submit new password
         if (newPassword !== confirmPassword) {
           setError('Passwords do not match.')
           setLoading(false)
@@ -393,6 +412,11 @@ function LoginPage({ onLogin }) {
         }
         if (newPassword.length < 6) {
           setError('Password must be at least 6 characters.')
+          setLoading(false)
+          return
+        }
+        if (!otp || otp.length !== 6) {
+          setError('Please enter the 6-digit code.')
           setLoading(false)
           return
         }
@@ -406,7 +430,7 @@ function LoginPage({ onLogin }) {
         const data = await res.json()
         if (res.ok) {
           setMode('login')
-          setError('Password reset successful! You can now log in.')
+          setSuccessMessage('Password reset successful! You can now log in.')
           setOtp('')
           setNewPassword('')
           setConfirmPassword('')
@@ -415,35 +439,36 @@ function LoginPage({ onLogin }) {
           setOtpToken('')
           setOtpTimestamp(0)
         } else {
-          setError(data.error || 'Reset failed')
+          setError(data.error || data.message || 'Reset failed')
         }
       } else if (isResetFlow) {
-        // Step 1: Don't call /otp/verify here — just show the password field.
-        // The code will be verified by /reset-password in Step 2.
-        // This avoids double-verification which consumed the OTP.
+        // RESET FLOW STEP 1: Just show password fields (don't verify yet)
         if (!otp || otp.length !== 6) {
           setError('Please enter the 6-digit code from your email.')
         } else {
           setIsCodeVerified(true)
-          setError('Now enter your new password.')
+          setSuccessMessage('Code entered. Now set your new password.')
         }
       } else {
-        // Signup / login verification
-        const res = await fetch(`${API_URL}/auth/otp/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otp, token: otpToken, timestamp: otpTimestamp }),
-          credentials: 'include'
-        })
-        if (res.ok) {
-          window.location.reload()
-        } else {
-          setError('Invalid verification code')
+        // SIGNUP/LOGIN VERIFICATION
+        try {
+          const res = await fetch(`${API_URL}/auth/otp/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code: otp, token: otpToken, timestamp: otpTimestamp }),
+            credentials: 'include'
+          })
+          
+          if (res.ok) {
+            window.location.reload()
+          } else {
+            const data = await res.json()
+            setError(data.error || data.message || 'Invalid verification code')
+          }
+        } catch (err) {
+          setError('Connection error. Please try again.')
         }
       }
-    } catch (err) {
-      setError('Verification failed')
-    }
     setLoading(false)
   }
 
@@ -451,6 +476,7 @@ function LoginPage({ onLogin }) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       const res = await fetch(`${API_URL}/auth/otp/send`, {
         method: 'POST',
@@ -466,9 +492,9 @@ function LoginPage({ onLogin }) {
         setIsResetFlow(true)
         setIsCodeVerified(false)
         if (data.emailSent === false) {
-          setError('Code generated but email delivery failed. Check server console for the code.')
+          setError('Email delivery failed. Check server console for the code.')
         } else {
-          setError('Verification code sent to your email. Check spam folder too.')
+          setSuccessMessage('Verification code sent to your email. Check spam folder too.')
         }
       } else {
         setError('Failed to send reset code.')
@@ -477,6 +503,39 @@ function LoginPage({ onLogin }) {
       setError('Connection error')
     }
     setLoading(false)
+  }
+
+  const resendCode = async () => {
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const res = await fetch(`${API_URL}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setOtpToken(data.token || '')
+        setOtpTimestamp(data.timestamp || 0)
+        setSuccessMessage('New code sent to your email.')
+      } else {
+        setError('Failed to resend code.')
+      }
+    } catch {
+      setError('Connection error')
+    }
+    setLoading(false)
+  }
+
+  const backToLogin = () => {
+    setMode('login')
+    setIsResetFlow(false)
+    setIsCodeVerified(false)
+    setError('')
+    setSuccessMessage('')
   }
 
   const startGitHubAuth = () => {
@@ -504,7 +563,8 @@ function LoginPage({ onLogin }) {
             {mode === 'reset' && 'Verify your identity to reset your password.'}
           </p>
 
-          {error && <div className="login-error-toast">{error}</div>}
+          {error && <div className="login-toast error">{error}</div>}
+          {successMessage && <div className="login-toast success">{successMessage}</div>}
 
           {(mode === 'login' || mode === 'signup') && (
             <form onSubmit={mode === 'login' ? handleLogin : handleSignup}>
