@@ -31,6 +31,18 @@ def query_huggingface(prompt):
     response = requests.post(HF_API_URL, headers=headers, json=payload)
     return response.json()
 
+@app.route('/')
+def health_check():
+    return jsonify({
+        "service": "Skill-Bridge AI Service",
+        "status": "running",
+        "endpoints": ["/generate-learning-path"]
+    })
+
+@app.route('/ping')
+def ping():
+    return "AI service is awake", 200
+
 @app.route('/generate-learning-path', methods=['POST'])
 def generate_learning_path():
     data = request.json
