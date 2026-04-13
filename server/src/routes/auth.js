@@ -30,6 +30,13 @@ const isProduction = process.env.NODE_ENV === 'production';
  * Redirects to GitHub for authorization
  */
 router.get('/github', (req, res) => {
+    if (!config.github.clientId || !config.github.clientSecret) {
+        return res.status(503).json({
+            error: 'GitHub OAuth not configured',
+            message: 'Missing GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET on the server. Set them in Render environment variables and redeploy.'
+        });
+    }
+
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.get('host');
     const callbackUrl = config.github.callbackUrl || `${protocol}://${host}/auth/github/callback`;
@@ -54,6 +61,13 @@ router.get('/github', (req, res) => {
  */
 router.get('/github/callback', async (req, res) => {
     const { code, state, error } = req.query;
+
+    if (!config.github.clientId || !config.github.clientSecret) {
+        return res.status(503).json({
+            error: 'GitHub OAuth not configured',
+            message: 'Missing GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET on the server. Set them in Render environment variables and redeploy.'
+        });
+    }
 
     if (error) {
         console.error('❌ OAuth error:', error);

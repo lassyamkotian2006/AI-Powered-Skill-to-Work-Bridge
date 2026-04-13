@@ -8,19 +8,13 @@
 
 require('dotenv').config();
 
-// Validate required environment variables
-const requiredEnvVars = [
-  'GITHUB_CLIENT_ID',
-  'GITHUB_CLIENT_SECRET',
-  'SESSION_SECRET'
-];
-
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`❌ Missing required environment variable: ${envVar}`);
-    console.error('Please check your .env file (copy from .env.example)');
-    process.exit(1);
-  }
+// Validate required environment variables.
+// IMPORTANT: GitHub OAuth is optional (email/password still works).
+// We should NOT crash the whole app if GitHub keys are missing, otherwise Render shows 502.
+if (!process.env.SESSION_SECRET) {
+  console.error('❌ Missing required environment variable: SESSION_SECRET');
+  console.error('Please check your .env file (copy from .env.example)');
+  process.exit(1);
 }
 
 // Log which optional services are configured
