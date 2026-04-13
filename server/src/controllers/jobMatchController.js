@@ -300,11 +300,14 @@ exports.generateJobMatches = async (req, res) => {
         console.log(`\n🎯 Generating job matches for ${skills.length} skills: ${skills.slice(0, 5).join(', ')}${skills.length > 5 ? '...' : ''}`);
         console.log(`   Focus/Interest: ${focus || 'none'}`);
 
+        // Normalize to the format the AI service expects
+        const skillsForAI = skills.map(s => ({ name: String(s), level: 'intermediate' }));
+
         // Try AI-powered role suggestion first
         let result = null;
         
         try {
-            const aiRoles = await suggestJobRolesWithAI(skills, focus);
+            const aiRoles = await suggestJobRolesWithAI(skillsForAI, focus);
             if (aiRoles && aiRoles.length >= 3) {
                 const domain = inferDomainFromRoles(aiRoles, skills);
                 result = {

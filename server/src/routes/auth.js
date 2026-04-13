@@ -16,6 +16,7 @@
 
 const express = require('express');
 const { Octokit } = require('octokit');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { requireAuth } = require('../middleware/auth');
 const config = require('../config/env');
@@ -80,7 +81,16 @@ router.get('/github/callback', async (req, res) => {
     }
     
     if (!req.session.oauthState) {
-        console.warn('⚠️ OAuth state missing (server may have restarted). Proceeding.');
+        // Fail closed in production to avoid CSRF/session fixation issues.
+        // In dev, allow it to reduce friction during restarts.
+        if (isProduction) {
+            console.error('❌ OAuth state missing (session lost). Restart login.');
+            return res.status(400).json({
+                error: 'Session expired',
+                message: 'Your login session expired. Please try "Continue with GitHub" again.'
+            });
+        }
+        console.warn('⚠️ OAuth state missing (dev mode). Proceeding.');
     }
 
     try {
@@ -109,20 +119,32 @@ router.get('/github/callback', async (req, res) => {
             return res.status(400).json({ error: 'Failed to exchange code for token', details: tokenData.error });
         }
 
+        if (!tokenData.access_token) {
+            console.error('❌ Token exchange failed: no access_token returned');
+            return res.status(400).json({ error: 'Failed to exchange code for token' });
+        }
+
         req.session.accessToken = tokenData.access_token;
 
         const octokit = new Octokit({ auth: tokenData.access_token });
         const { data: githubUser } = await octokit.rest.users.getAuthenticated();
 
-        const verifiedEmail = req.session.verifiedEmail || githubUser.email;
+        // Require a VERIFIED email from GitHub for a secure identity binding.
+        // GitHub may not expose email on the profile; use the emails API.
+        const { data: emails } = await octokit.rest.users.listEmailsForAuthenticatedUser();
+        const primaryVerifiedEmail = emails.find(e => e.primary && e.verified)?.email;
+        const anyVerifiedEmail = emails.find(e => e.verified)?.email;
+        const chosenEmail = primaryVerifiedEmail || anyVerifiedEmail || null;
 
-        if (!verifiedEmail) {
-            const { data: emails } = await octokit.rest.users.listEmailsForAuthenticatedUser();
-            const primaryEmail = emails.find(e => e.primary && e.verified)?.email || emails[0]?.email;
-            req.session.verifiedEmail = primaryEmail;
-        } else {
-            req.session.verifiedEmail = verifiedEmail;
+        if (!chosenEmail) {
+            console.error('❌ GitHub login blocked: no verified email found on GitHub account');
+            return res.status(400).json({
+                error: 'Email not verified',
+                message: 'Please verify your email address on GitHub, then try again.'
+            });
         }
+
+        req.session.verifiedEmail = chosenEmail;
 
         let user = await dbService.getUserByGithubId(githubUser.id);
 
@@ -210,12 +232,12 @@ router.post('/login', async (req, res) => {
 
         if (!user) {
             console.warn(`❌ Login failed: User not found for ${email}`);
-            return res.status(401).json({ error: 'Invalid email or password' });
+            return res.status(404).json({ error: 'Account does not exist' });
         }
 
         if (!user.password_hash) {
             console.warn(`❌ Login failed: No password for ${email} (GitHub-only account?)`);
-            return res.status(401).json({ error: 'Invalid email or password' });
+            return res.status(401).json({ error: 'This account uses GitHub login. Please continue with GitHub.' });
         }
 
         if (!user.is_email_verified && !req.session.otpVerified) {
@@ -228,7 +250,7 @@ router.post('/login', async (req, res) => {
 
         if (!match) {
             console.warn(`❌ Login failed: Wrong password for ${email}`);
-            return res.status(401).json({ error: 'Invalid email or password' });
+            return res.status(401).json({ error: 'Password is incorrect' });
         }
 
         if (isProduction && !user.is_email_verified) {
@@ -523,8 +545,7 @@ router.put('/profile', requireAuth, async (req, res) => {
 });
 
 function generateState() {
-    return Math.random().toString(36).substring(2, 15) +
-        Math.random().toString(36).substring(2, 15);
+    return crypto.randomBytes(24).toString('hex');
 }
 
 module.exports = router;
