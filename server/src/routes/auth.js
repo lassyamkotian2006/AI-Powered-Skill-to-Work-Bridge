@@ -124,9 +124,8 @@ router.get('/github/callback', async (req, res) => {
             return res.status(400).json({ error: 'Failed to exchange code for token' });
         }
 
-        req.session.accessToken = tokenData.access_token;
-
-        const octokit = new Octokit({ auth: tokenData.access_token });
+        const accessToken = tokenData.access_token;
+        const octokit = new Octokit({ auth: accessToken });
         const { data: githubUser } = await octokit.rest.users.getAuthenticated();
 
         // Require a VERIFIED email from GitHub for a secure identity binding.
@@ -144,7 +143,17 @@ router.get('/github/callback', async (req, res) => {
             });
         }
 
-        req.session.verifiedEmail = chosenEmail;
+        // Determine where to send the user after auth.
+        // If the app is served by this same backend on Render, redirect to the current origin.
+        // This avoids misconfigured CLIENT_URL sending users to a dead route (causing "Not Found").
+        const currentOrigin = `${protocol}://${host}`;
+        const configuredClientUrl = config.clientUrl;
+        const redirectUrl =
+            !configuredClientUrl ||
+            configuredClientUrl === '/' ||
+            (isProduction && /^http:\/\/localhost[:\/]/i.test(configuredClientUrl))
+                ? currentOrigin
+                : configuredClientUrl;
 
         let user = await dbService.getUserByGithubId(githubUser.id);
 
@@ -162,8 +171,8 @@ router.get('/github/callback', async (req, res) => {
             }
         }
 
-        req.session.otpVerified = true;
-        req.session.user = {
+        // Harden session: regenerate on successful login to prevent session fixation.
+        const userSessionPayload = {
             id: user.id,
             githubId: githubUser.id,
             login: user.username || githubUser.login,
@@ -172,8 +181,18 @@ router.get('/github/callback', async (req, res) => {
             profileUrl: user.profile_url || githubUser.html_url
         };
 
+        await new Promise((resolve, reject) => {
+            req.session.regenerate(err => (err ? reject(err) : resolve()));
+        });
+
+        req.session.accessToken = accessToken;
+        req.session.verifiedEmail = chosenEmail;
+        req.session.otpVerified = true;
+        req.session.user = userSessionPayload;
+        req.session.oauthState = null;
+
         console.log(`✅ User ${githubUser.login} logged in via GitHub!`);
-        res.redirect(config.clientUrl);
+        res.redirect(redirectUrl);
 
     } catch (err) {
         console.error('❌ OAuth callback error:', err);
@@ -257,13 +276,20 @@ router.post('/login', async (req, res) => {
             return res.json({ needsVerification: true, email: user.email });
         }
 
-        req.session.user = {
+        // Harden session: regenerate on successful login to prevent session fixation.
+        const userSessionPayload = {
             id: user.id,
             githubId: user.github_id,
             login: user.username,
             name: user.name || user.username,
             avatarUrl: user.avatar_url
         };
+
+        await new Promise((resolve, reject) => {
+            req.session.regenerate(err => (err ? reject(err) : resolve()));
+        });
+
+        req.session.user = userSessionPayload;
         req.session.otpVerified = true;
         req.session.verifiedEmail = email;
 
