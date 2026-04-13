@@ -37,8 +37,11 @@ router.post('/analyze', requireAuth, async (req, res) => {
             console.log(`   Filtered to ${repos.length} selected repositories`);
         }
 
-        // Step 2: Get detailed info for repositories (limit to save API calls)
-        const maxRepos = parseInt(req.query.limit) || 10;
+        // Step 2: Get detailed info for repositories
+        // Default to analyzing all repos unless a limit is provided.
+        const maxRepos = Number.isFinite(parseInt(req.query.limit))
+            ? parseInt(req.query.limit)
+            : repos.length;
         const topRepos = repos.slice(0, maxRepos);
 
         console.log(`📂 Fetching details for top ${topRepos.length} repos...`);

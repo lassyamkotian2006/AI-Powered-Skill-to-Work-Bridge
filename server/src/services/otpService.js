@@ -2,10 +2,8 @@
  * OTP Service - FIXED VERSION
  * -----------
  * Handles generation and verification of One-Time Passwords.
- * Uses HMAC tokens for STATELESS verification that survives server restarts.
- * Codes expire after 10 minutes.
- * IMPORTANT: OTP can be verified multiple times within validity window
- * (needed for reset flow: verify-code → then reset-password)
+ * Uses HMAC tokens for verification.
+ * Codes expire quickly (default 60s) and ONLY the latest OTP per email is accepted.
  */
 
 const crypto = require('crypto');
@@ -14,7 +12,12 @@ const { sendOTP: sendOTPEmail } = require('./emailService');
 
 // Secret for HMAC signing
 const HMAC_SECRET = process.env.SESSION_SECRET || 'skill-bridge-otp-secret';
-const OTP_EXPIRY_MINUTES = 10;
+const OTP_EXPIRY_SECONDS = Math.max(10, parseInt(process.env.OTP_EXPIRY_SECONDS || '60', 10) || 60);
+
+// In-memory "latest OTP per email" guard.
+// Prevents old codes from being valid after resend.
+// Note: resets on server restart (acceptable for short-lived OTPs).
+const latestOtpByEmail = new Map();
 
 /**
  * Create an HMAC token that encodes email + code + timestamp.
@@ -38,10 +41,13 @@ async function generateOTPForEmail(email) {
     // Create HMAC token for stateless verification
     const token = createToken(normalizedEmail, code, timestamp);
 
+    // Mark this as the latest OTP for this email
+    latestOtpByEmail.set(normalizedEmail, { token, timestamp });
+
     console.log(`\n-----------------------------------------`);
     console.log(`🔐 OTP for ${normalizedEmail}: ${code}`);
     console.log(`   Token: ${token.substring(0, 20)}...`);
-    console.log(`   Expires: ${new Date(timestamp + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString()}`);
+    console.log(`   Expires: ${new Date(timestamp + OTP_EXPIRY_SECONDS * 1000).toISOString()}`);
     console.log(`-----------------------------------------\n`);
 
     let emailSent = false;
@@ -89,10 +95,17 @@ function verifyOTP(email, code, token, timestamp) {
     const codeStr = String(code).trim();
     const ts = Number(timestamp);
 
+    // Only accept latest OTP for this email
+    const latest = latestOtpByEmail.get(normalizedEmail);
+    if (!latest || latest.token !== token || latest.timestamp !== ts) {
+        console.log(`❌ OTP verification failed - not latest code`);
+        return false;
+    }
+
     // Check expiration
     const elapsed = Date.now() - ts;
-    if (elapsed > OTP_EXPIRY_MINUTES * 60 * 1000) {
-        console.log(`❌ OTP expired (${Math.round(elapsed / 1000)}s elapsed, max ${OTP_EXPIRY_MINUTES * 60}s)`);
+    if (elapsed > OTP_EXPIRY_SECONDS * 1000) {
+        console.log(`❌ OTP expired (${Math.round(elapsed / 1000)}s elapsed, max ${OTP_EXPIRY_SECONDS}s)`);
         return false;
     }
 

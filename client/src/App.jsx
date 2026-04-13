@@ -112,9 +112,11 @@ function App() {
       const res = await fetch(`${API_URL}/repos`, { credentials: 'include' })
       const data = await res.json()
       if (data.repositories && data.repositories.length > 0) {
+        const allRepoNames = data.repositories.map(r => r.name)
         setRepos(data.repositories)
-        setSelectedRepos(data.repositories.map(r => r.name))
-        setShowRepoSelector(true)
+        setSelectedRepos(allRepoNames)
+        // Automatically analyze all repositories (no selector screen)
+        await analyzeSelectedRepos(allRepoNames)
       }
     } catch (err) {
       console.error('Error fetching repos:', err)
@@ -122,14 +124,15 @@ function App() {
     setFetchingRepos(false)
   }
 
-  const analyzeSelectedRepos = async () => {
+  const analyzeSelectedRepos = async (repoNames = selectedRepos) => {
     setShowRepoSelector(false)
     setAnalyzing(true)
     try {
-      const res = await fetch(`${API_URL}/skills/analyze`, {
+      const limit = Array.isArray(repoNames) ? repoNames.length : 0
+      const res = await fetch(`${API_URL}/skills/analyze${limit ? `?limit=${limit}` : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repositories: selectedRepos }),
+        body: JSON.stringify({ repositories: repoNames }),
         credentials: 'include'
       })
       const data = await res.json()
@@ -314,6 +317,19 @@ function LoginPage({ onLogin }) {
     setSuccessMessage('')
   }, [mode])
 
+  const goToLogin = () => {
+    setMode('login')
+    setIsResetFlow(false)
+    setIsCodeVerified(false)
+    setOtp('')
+    setOtpToken('')
+    setOtpTimestamp(0)
+    setNewPassword('')
+    setConfirmPassword('')
+    setError('')
+    setSuccessMessage('')
+  }
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -429,15 +445,8 @@ function LoginPage({ onLogin }) {
         })
         const data = await res.json()
         if (res.ok) {
-          setMode('login')
+        goToLogin()
           setSuccessMessage('Password reset successful! You can now log in.')
-          setOtp('')
-          setNewPassword('')
-          setConfirmPassword('')
-          setIsResetFlow(false)
-          setIsCodeVerified(false)
-          setOtpToken('')
-          setOtpTimestamp(0)
         } else {
           setError(data.error || data.message || 'Reset failed')
         }
@@ -539,11 +548,7 @@ function LoginPage({ onLogin }) {
   }
 
   const backToLogin = () => {
-    setMode('login')
-    setIsResetFlow(false)
-    setIsCodeVerified(false)
-    setError('')
-    setSuccessMessage('')
+    goToLogin()
   }
 
   const startGitHubAuth = () => {
@@ -659,7 +664,7 @@ function LoginPage({ onLogin }) {
                 {loading ? 'Sending...' : 'Send Reset Code'}
                 <span className="material-symbols-outlined">send</span>
               </button>
-              <button type="button" className="back-to-login" onClick={() => setMode('login')}>Back to Sign In</button>
+              <button type="button" className="back-to-login" onClick={goToLogin}>Back to Sign In</button>
             </form>
           )}
 
@@ -746,7 +751,7 @@ function LoginPage({ onLogin }) {
                 </span>
               </button>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                <button type="button" className="back-to-login" onClick={() => { setMode('login'); setIsResetFlow(false); setIsCodeVerified(false) }}>Back to Login</button>
+                <button type="button" className="back-to-login" onClick={goToLogin}>Back to Login</button>
                 {!(isResetFlow && isCodeVerified) && (
                   <button
                     type="button"
@@ -805,9 +810,9 @@ function LoginPage({ onLogin }) {
 
           <div className="login-footer-switch">
             {mode === 'login' ? (
-              <p>Don't have an account? <button onClick={() => setMode('signup')} className="green-link">Create Account</button></p>
+              <p>Don't have an account? <button type="button" onClick={() => setMode('signup')} className="green-link">Create Account</button></p>
             ) : (
-              <p>Already have an account? <button onClick={() => setMode('login')} className="green-link">Sign In</button></p>
+              <p>Already have an account? <button type="button" onClick={goToLogin} className="green-link">Sign In</button></p>
             )}
           </div>
         </div>
