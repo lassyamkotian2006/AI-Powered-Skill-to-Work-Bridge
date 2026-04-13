@@ -8,6 +8,7 @@
  */
 
 var nodemailer = require("nodemailer");
+var crypto = require("crypto");
 
 // Debug logging
 console.log("");
@@ -34,7 +35,7 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
 }
 
 // ── Provider 1: Brevo HTTP API ──
-async function sendViaBrevo(to, subject, text, html) {
+async function sendViaBrevo(to, subject, text, html, headers) {
     console.log("[Brevo] Sending to", to);
     var senderEmail =
         process.env.BREVO_SENDER_EMAIL ||
@@ -54,7 +55,8 @@ async function sendViaBrevo(to, subject, text, html) {
             to: [{ email: to }],
             subject: subject,
             textContent: text,
-            htmlContent: html
+            htmlContent: html,
+            headers: headers || undefined
         })
     });
 
@@ -70,7 +72,7 @@ async function sendViaBrevo(to, subject, text, html) {
 }
 
 // ── Provider 2: Resend HTTP API ──
-async function sendViaResend(to, subject, text, html) {
+async function sendViaResend(to, subject, text, html, headers) {
     console.log("[Resend] Sending to", to);
 
     var from =
@@ -89,7 +91,8 @@ async function sendViaResend(to, subject, text, html) {
             to: [to],
             subject: subject,
             text: text,
-            html: html
+            html: html,
+            headers: headers || undefined
         })
     });
 
@@ -105,7 +108,7 @@ async function sendViaResend(to, subject, text, html) {
 }
 
 // ── Provider 2: Gmail SMTP ──
-async function sendViaGmail(to, subject, text, html) {
+async function sendViaGmail(to, subject, text, html, headers) {
     if (!transporter) {
         throw new Error("Gmail SMTP not configured");
     }
@@ -117,7 +120,8 @@ async function sendViaGmail(to, subject, text, html) {
         to: to,
         subject: subject,
         text: text,
-        html: html
+        html: html,
+        headers: headers || undefined
     });
     
     console.log("[Gmail] ✅ Email sent! MessageID:", info.messageId);
@@ -158,11 +162,12 @@ async function verifyConnection() {
 }
 
 // ── Build OTP Email HTML ──
-function buildOTPEmail(code) {
+function buildOTPEmail(code, otpId) {
     var expirySeconds = parseInt(process.env.OTP_EXPIRY_SECONDS || '60', 10) || 60;
     return {
-        subject: "Your SkillBridge Verification Code",
-        text: "Your verification code is: " + code + ". It expires in " + expirySeconds + " seconds.",
+        // Unique subject reduces Gmail threading/forwarding grouping
+        subject: `SkillBridge Verification Code: ${code} (${otpId})`,
+        text: "Your verification code is: " + code + ". It expires in " + expirySeconds + " seconds. OTP-ID: " + otpId,
         html: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;border:1px solid #e0e0e0;border-radius:10px">'
             + '<h2 style="color:#2D3748;text-align:center">Email Verification</h2>'
             + '<p style="font-size:16px;color:#4A5568">Your OTP code is:</p>'
@@ -170,6 +175,7 @@ function buildOTPEmail(code) {
             + '<span style="font-size:32px;font-weight:bold;letter-spacing:5px;color:#3182CE">' + code + '</span>'
             + '</div>'
             + '<p style="font-size:14px;color:#718096;text-align:center">This code will expire in ' + expirySeconds + ' seconds.</p>'
+            + '<p style="font-size:12px;color:#A0AEC0;text-align:center">OTP-ID: ' + otpId + '</p>'
             + '<hr style="border:0;border-top:1px solid #e0e0e0;margin:20px 0">'
             + '<p style="font-size:12px;color:#A0AEC0;text-align:center">If you did not request this code, please ignore this email.</p>'
             + '</div>'
@@ -190,12 +196,18 @@ var sendOTPEmail = async function(email, code) {
         "skilltoworkbridge@gmail.com"
     );
 
-    var content = buildOTPEmail(code);
+    var otpId = (crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex'));
+    var content = buildOTPEmail(code, otpId);
+    var headers = {
+        "X-SkillBridge-OTP-Id": otpId,
+        // Helps some clients avoid threading
+        "X-Entity-Ref-ID": otpId
+    };
 
     // 1. Try Brevo first (works on Render, any recipient)
     if (process.env.BREVO_API_KEY) {
         try {
-            await sendViaBrevo(email, content.subject, content.text, content.html);
+            await sendViaBrevo(email, content.subject, content.text, content.html, headers);
             console.log("=========================");
             return;
         } catch (err) {
@@ -206,7 +218,7 @@ var sendOTPEmail = async function(email, code) {
     // 2. Try Resend API (works on most hosts; requires configured "from" domain)
     if (process.env.RESEND_API_KEY) {
         try {
-            await sendViaResend(email, content.subject, content.text, content.html);
+            await sendViaResend(email, content.subject, content.text, content.html, headers);
             console.log("=========================");
             return;
         } catch (err) {
@@ -217,7 +229,7 @@ var sendOTPEmail = async function(email, code) {
     // 3. Try Gmail SMTP (works for all recipients if App Password is correct)
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         try {
-            await sendViaGmail(email, content.subject, content.text, content.html);
+            await sendViaGmail(email, content.subject, content.text, content.html, headers);
             console.log("=========================");
             return;
         } catch (err) {

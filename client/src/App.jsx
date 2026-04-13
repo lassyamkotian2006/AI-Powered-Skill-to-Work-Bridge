@@ -313,12 +313,44 @@ function LoginPage({ onLogin }) {
   const [otpToken, setOtpToken] = useState('')
   const [otpTimestamp, setOtpTimestamp] = useState(0)
   const [isCodeVerified, setIsCodeVerified] = useState(false)
+  const [otpRequireGithubLinked, setOtpRequireGithubLinked] = useState(false)
+  const [isGithubOtpFlow, setIsGithubOtpFlow] = useState(false)
 
   // Clear messages on mode change
   useEffect(() => {
     setError('')
     setSuccessMessage('')
   }, [mode])
+
+  // If redirected back from GitHub OAuth, open OTP verification screen
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('githubOtp') !== '1') return
+
+    ;(async () => {
+      try {
+        const pendingRes = await fetch(`${API_URL}/auth/github/otp/pending`, { credentials: 'include' })
+        const pending = await pendingRes.json()
+        if (pending?.pending) {
+          setEmail(pending.email || '')
+          setOtpToken(pending.token || '')
+          setOtpTimestamp(pending.timestamp || 0)
+          setMode('otp')
+          setIsResetFlow(false)
+          setIsCodeVerified(false)
+          setOtpRequireGithubLinked(false)
+          setIsGithubOtpFlow(true)
+          setSuccessMessage('Enter the code sent to your GitHub email to finish login.')
+        } else {
+          setError('No pending GitHub verification. Please try again.')
+        }
+      } catch {
+        setError('Failed to start GitHub verification. Please try again.')
+      } finally {
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    })()
+  }, [])
 
   const goToLogin = () => {
     setMode('login')
@@ -331,6 +363,7 @@ function LoginPage({ onLogin }) {
     setConfirmPassword('')
     setError('')
     setSuccessMessage('')
+    setIsGithubOtpFlow(false)
   }
 
   const handleLogin = async (e) => {
@@ -352,7 +385,7 @@ function LoginPage({ onLogin }) {
         const otpRes = await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, requireGithubLinked: true }),
           credentials: 'include'
         })
         const otpData = await otpRes.json()
@@ -361,6 +394,7 @@ function LoginPage({ onLogin }) {
           setOtpTimestamp(otpData.timestamp)
         }
         setMode('otp')
+        setOtpRequireGithubLinked(true)
         if (otpData.emailSent === false) {
           setError('Email delivery failed. Check server console for the code.')
         } else {
@@ -393,7 +427,7 @@ function LoginPage({ onLogin }) {
         const otpRes = await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, requireGithubLinked: false }),
           credentials: 'include'
         })
         const otpData = await otpRes.json()
@@ -402,6 +436,7 @@ function LoginPage({ onLogin }) {
           setOtpTimestamp(otpData.timestamp)
         }
         setMode('otp')
+        setOtpRequireGithubLinked(false)
         if (otpData.emailSent === false) {
           setError('Email delivery failed. Check server console for the code.')
         } else {
@@ -422,6 +457,23 @@ function LoginPage({ onLogin }) {
     setError('')
     setSuccessMessage('')
     try {
+      if (isGithubOtpFlow) {
+        const res = await fetch(`${API_URL}/auth/github/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: otp }),
+          credentials: 'include'
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          window.location.reload()
+        } else {
+          setError(data.error || data.message || 'Invalid verification code')
+        }
+        setLoading(false)
+        return
+      }
+
       if (isResetFlow && isCodeVerified) {
         // RESET FLOW STEP 2: Submit new password
         if (newPassword !== confirmPassword) {
@@ -497,7 +549,7 @@ function LoginPage({ onLogin }) {
       const res = await fetch(`${API_URL}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, requireGithubLinked: false }),
         credentials: 'include'
       })
       const data = await res.json()
@@ -529,7 +581,7 @@ function LoginPage({ onLogin }) {
       const res = await fetch(`${API_URL}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, requireGithubLinked: otpRequireGithubLinked }),
         credentials: 'include'
       })
       const data = await res.json()
@@ -767,7 +819,7 @@ function LoginPage({ onLogin }) {
                         const res = await fetch(`${API_URL}/auth/otp/send`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ email }),
+                          body: JSON.stringify({ email, requireGithubLinked: otpRequireGithubLinked }),
                           credentials: 'include'
                         })
                         const data = await res.json()

@@ -171,33 +171,98 @@ router.get('/github/callback', async (req, res) => {
             }
         }
 
-        // Harden session: regenerate on successful login to prevent session fixation.
-        const userSessionPayload = {
-            id: user.id,
-            githubId: githubUser.id,
-            login: user.username || githubUser.login,
-            name: user.name || githubUser.name,
-            avatarUrl: user.avatar_url || githubUser.avatar_url,
-            profileUrl: user.profile_url || githubUser.html_url
+        // SECURITY: do NOT auto-login after GitHub OAuth.
+        // Send OTP to the VERIFIED GitHub email and only create session user after OTP verification.
+        const otp = await otpService.generateOTP(chosenEmail);
+
+        req.session.githubOtpPending = {
+            email: chosenEmail,
+            token: otp.token,
+            timestamp: otp.timestamp,
+            accessToken,
+            githubUser: {
+                id: githubUser.id,
+                login: githubUser.login,
+                name: githubUser.name,
+                avatar_url: githubUser.avatar_url,
+                html_url: githubUser.html_url
+            },
+            dbUserId: user.id
         };
-
-        await new Promise((resolve, reject) => {
-            req.session.regenerate(err => (err ? reject(err) : resolve()));
-        });
-
-        req.session.accessToken = accessToken;
-        req.session.verifiedEmail = chosenEmail;
-        req.session.otpVerified = true;
-        req.session.user = userSessionPayload;
         req.session.oauthState = null;
 
-        console.log(`✅ User ${githubUser.login} logged in via GitHub!`);
-        res.redirect(redirectUrl);
+        console.log(`✅ GitHub verified for ${githubUser.login}. OTP required to complete login.`);
+        res.redirect(`${redirectUrl}?githubOtp=1`);
 
     } catch (err) {
         console.error('❌ OAuth callback error:', err);
         res.status(500).json({ error: 'Authentication failed', message: err.message });
     }
+});
+
+/**
+ * GET /auth/github/otp/pending
+ * Used by the frontend to display OTP screen after GitHub OAuth.
+ */
+router.get('/github/otp/pending', (req, res) => {
+    const pending = req.session?.githubOtpPending;
+    if (!pending) {
+        return res.json({ pending: false });
+    }
+    res.json({
+        pending: true,
+        email: pending.email,
+        token: pending.token,
+        timestamp: pending.timestamp
+    });
+});
+
+/**
+ * POST /auth/github/otp/verify
+ * Completes GitHub login after OTP verification.
+ */
+router.post('/github/otp/verify', async (req, res) => {
+    const pending = req.session?.githubOtpPending;
+    const { code } = req.body || {};
+
+    if (!pending) {
+        return res.status(400).json({
+            success: false,
+            error: 'No pending GitHub verification',
+            message: 'Please click "Continue with GitHub" again.'
+        });
+    }
+
+    const ok = otpService.verifyOTP(pending.email, String(code || ''), pending.token, pending.timestamp);
+    if (!ok) {
+        return res.status(401).json({
+            success: false,
+            error: 'Invalid or expired code',
+            message: 'The verification code is incorrect or has expired. Please request a new one.'
+        });
+    }
+
+    // Harden session: regenerate on successful login to prevent session fixation.
+    const userSessionPayload = {
+        id: pending.dbUserId,
+        githubId: pending.githubUser.id,
+        login: pending.githubUser.login,
+        name: pending.githubUser.name || pending.githubUser.login,
+        avatarUrl: pending.githubUser.avatar_url,
+        profileUrl: pending.githubUser.html_url
+    };
+
+    await new Promise((resolve, reject) => {
+        req.session.regenerate(err => (err ? reject(err) : resolve()));
+    });
+
+    req.session.accessToken = pending.accessToken;
+    req.session.verifiedEmail = pending.email;
+    req.session.otpVerified = true;
+    req.session.user = userSessionPayload;
+    req.session.githubOtpPending = null;
+
+    return res.json({ success: true });
 });
 
 /**
@@ -392,7 +457,7 @@ router.get('/user', (req, res) => {
  */
 router.post('/otp/send', async (req, res) => {
     console.log('📨 Request to /otp/send:', req.body);
-    let { email } = req.body;
+    let { email, requireGithubLinked } = req.body;
     email = email?.trim();
 
     if (!email || !email.includes('@')) {
@@ -401,6 +466,26 @@ router.post('/otp/send', async (req, res) => {
     }
 
     try {
+        // Optional security gate: only send OTP if this email belongs to an account
+        // that is already linked to GitHub in OUR database.
+        if (requireGithubLinked) {
+            const user = await dbService.getUserByEmail(email);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Account does not exist',
+                    message: 'No account found for this email.'
+                });
+            }
+            if (!user.github_id) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No GitHub account linked',
+                    message: 'This email is not linked to a GitHub account. Please use "Continue with GitHub" to sign in.'
+                });
+            }
+        }
+
         const result = await otpService.generateOTP(email);
 
         req.session.pendingEmail = email;
