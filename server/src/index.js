@@ -166,32 +166,27 @@ app.use(express.static(clientDistPath));
  * This enables SPA client-side routing.
  */
 app.get('*', (req, res) => {
-    // Only serve index.html for GET requests that expect HTML
-    if (req.accepts('html')) {
-        if (fs.existsSync(indexHtmlPath)) {
-            res.sendFile(indexHtmlPath);
-        } else {
-            res.status(503).send(`
-                <html>
-                <head><title>Skill Bridge - Building</title></head>
-                <body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0a0a0a; color: #fff;">
-                    <div style="text-align: center; max-width: 500px;">
-                        <h1>🌉 Skill-to-Work Bridge</h1>
-                        <p>The frontend is not built yet or the build failed.</p>
-                        <p style="color: #888;">If this is a fresh deployment, the build may still be in progress. Please wait a few minutes and try again.</p>
-                        <p style="color: #666; font-size: 0.9em;">Expected path: ${clientDistPath}</p>
-                        <a href="/api/health" style="color: #4ade80;">Check API Health</a>
-                    </div>
-                </body>
-                </html>
-            `);
-        }
-    } else {
-        res.status(404).json({
-            error: 'Not Found',
-            message: `Route ${req.method} ${req.path} does not exist`
-        });
+    // Serve the SPA for any unknown GET route.
+    // Some clients (or proxies) may omit Accept: text/html, so don't rely on req.accepts('html').
+    // API routes are mounted above, so this won't swallow legitimate API 404s.
+    if (fs.existsSync(indexHtmlPath)) {
+        return res.sendFile(indexHtmlPath);
     }
+
+    return res.status(503).send(`
+        <html>
+        <head><title>Skill Bridge - Building</title></head>
+        <body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0a0a0a; color: #fff;">
+            <div style="text-align: center; max-width: 500px;">
+                <h1>🌉 Skill-to-Work Bridge</h1>
+                <p>The frontend is not built yet or the build failed.</p>
+                <p style="color: #888;">If this is a fresh deployment, the build may still be in progress. Please wait a few minutes and try again.</p>
+                <p style="color: #666; font-size: 0.9em;">Expected path: ${clientDistPath}</p>
+                <a href="/api/health" style="color: #4ade80;">Check API Health</a>
+            </div>
+        </body>
+        </html>
+    `);
 });
 
 /**
