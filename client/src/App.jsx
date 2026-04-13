@@ -524,7 +524,11 @@ function LoginPage({ onLogin }) {
       if (res.ok) {
         setOtpToken(data.token || '')
         setOtpTimestamp(data.timestamp || 0)
-        setSuccessMessage('New code sent to your email.')
+        if (data.emailSent === false) {
+          setError('Email delivery failed. Check server logs for the code.')
+        } else {
+          setSuccessMessage('New code sent to your email.')
+        }
       } else {
         setError('Failed to resend code.')
       }
@@ -762,7 +766,11 @@ function LoginPage({ onLogin }) {
                         if (res.ok) {
                           setOtpToken(data.token || '')
                           setOtpTimestamp(data.timestamp || 0)
-                          setError('New code sent to your email.')
+                          if (data.emailSent === false) {
+                            setError('Email delivery failed. Check server logs for the code.')
+                          } else {
+                            setSuccessMessage('New code sent to your email.')
+                          }
                         } else {
                           setError('Failed to resend code.')
                         }

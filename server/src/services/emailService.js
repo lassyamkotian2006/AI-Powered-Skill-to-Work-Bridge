@@ -3,6 +3,7 @@
  * ---------------------------------
  * Sends OTP emails using multiple providers:
  *   1. Brevo (primary - works on Render, any recipient)
+ *   2. Resend (secondary - API based)
  *   2. Gmail SMTP (using App Password - works for all recipients)
  */
 
@@ -15,6 +16,8 @@ console.log("BREVO_API_KEY:", process.env.BREVO_API_KEY ? "SET" : "NOT SET");
 console.log("RESEND_API_KEY:", process.env.RESEND_API_KEY ? "SET" : "NOT SET");
 console.log("EMAIL_USER:", process.env.EMAIL_USER || "NOT SET");
 console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "SET" : "NOT SET");
+console.log("BREVO_SENDER_EMAIL:", process.env.BREVO_SENDER_EMAIL || "NOT SET");
+console.log("RESEND_FROM:", process.env.RESEND_FROM || "NOT SET");
 console.log("============================");
 console.log("");
 
@@ -33,7 +36,11 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
 // ── Provider 1: Brevo HTTP API ──
 async function sendViaBrevo(to, subject, text, html) {
     console.log("[Brevo] Sending to", to);
-    var senderEmail = process.env.EMAIL_USER || "skilltoworkbridge@gmail.com";
+    var senderEmail =
+        process.env.BREVO_SENDER_EMAIL ||
+        process.env.EMAIL_USER ||
+        "skilltoworkbridge@gmail.com";
+    var senderName = process.env.BREVO_SENDER_NAME || "SkillBridge";
 
     var res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -43,7 +50,7 @@ async function sendViaBrevo(to, subject, text, html) {
             "Accept": "application/json"
         },
         body: JSON.stringify({
-            sender: { name: "SkillBridge", email: senderEmail },
+            sender: { name: senderName, email: senderEmail },
             to: [{ email: to }],
             subject: subject,
             textContent: text,
@@ -59,6 +66,41 @@ async function sendViaBrevo(to, subject, text, html) {
 
     var data = await res.json();
     console.log("[Brevo] ✅ Email sent! MessageId:", data.messageId);
+    return data;
+}
+
+// ── Provider 2: Resend HTTP API ──
+async function sendViaResend(to, subject, text, html) {
+    console.log("[Resend] Sending to", to);
+
+    var from =
+        process.env.RESEND_FROM ||
+        (process.env.EMAIL_USER ? `SkillBridge <${process.env.EMAIL_USER}>` : "SkillBridge <onboarding@resend.dev>");
+
+    var res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify({
+            from: from,
+            to: [to],
+            subject: subject,
+            text: text,
+            html: html
+        })
+    });
+
+    if (!res.ok) {
+        var body = await res.text();
+        console.error("[Resend] API error", res.status, body);
+        throw new Error("Resend API " + res.status + ": " + body);
+    }
+
+    var data = await res.json();
+    console.log("[Resend] ✅ Email sent! id:", data.id);
     return data;
 }
 
@@ -91,6 +133,11 @@ async function verifyConnection() {
         anyAvailable = true;
     }
     
+    if (process.env.RESEND_API_KEY) {
+        console.log("[Email] ✅ Resend API key configured (secondary)");
+        anyAvailable = true;
+    }
+
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         try {
             await transporter.verify();
@@ -134,7 +181,13 @@ var sendOTPEmail = async function(email, code) {
     console.log("=== SENDING OTP EMAIL ===");
     console.log("To:", email);
     console.log("Code:", code);
-    console.log("From:", process.env.EMAIL_USER || "skilltoworkbridge@gmail.com");
+    console.log(
+        "From:",
+        process.env.BREVO_SENDER_EMAIL ||
+        process.env.RESEND_FROM ||
+        process.env.EMAIL_USER ||
+        "skilltoworkbridge@gmail.com"
+    );
 
     var content = buildOTPEmail(code);
 
@@ -149,7 +202,18 @@ var sendOTPEmail = async function(email, code) {
         }
     }
 
-    // 2. Try Gmail SMTP (works for all recipients if App Password is correct)
+    // 2. Try Resend API (works on most hosts; requires configured "from" domain)
+    if (process.env.RESEND_API_KEY) {
+        try {
+            await sendViaResend(email, content.subject, content.text, content.html);
+            console.log("=========================");
+            return;
+        } catch (err) {
+            console.error("[Resend] Failed:", err.message);
+        }
+    }
+
+    // 3. Try Gmail SMTP (works for all recipients if App Password is correct)
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         try {
             await sendViaGmail(email, content.subject, content.text, content.html);

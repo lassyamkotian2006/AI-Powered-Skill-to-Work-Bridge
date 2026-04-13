@@ -42,6 +42,12 @@ services:
         sync: false
       - key: RESEND_FROM
         sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        sync: false
 
   - type: web
     name: skill-bridge-ai

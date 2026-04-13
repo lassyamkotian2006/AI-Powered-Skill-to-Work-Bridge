@@ -395,17 +395,23 @@ router.post('/otp/verify', async (req, res) => {
             req.session.verifiedEmail = email;
 
             const user = await dbService.getUserByEmail(email);
-            if (user) {
-                await dbService.updateUserVerification(user.id, true);
-
-                req.session.user = {
-                    id: user.id,
-                    githubId: user.github_id,
-                    login: user.username,
-                    name: user.name || user.username,
-                    avatarUrl: user.avatar_url
-                };
+            if (!user) {
+                console.error(`❌ OTP verified but user record not found for ${email}`);
+                return res.status(404).json({
+                    error: 'User not found',
+                    message: 'Your email was verified, but your account record was not found. Please sign up again.'
+                });
             }
+
+            await dbService.updateUserVerification(user.id, true);
+
+            req.session.user = {
+                id: user.id,
+                githubId: user.github_id,
+                login: user.username,
+                name: user.name || user.username,
+                avatarUrl: user.avatar_url
+            };
 
             console.log(`✅ OTP verified for ${email}`);
             res.json({ success: true, message: 'OTP verified successfully' });
