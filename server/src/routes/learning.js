@@ -26,6 +26,53 @@ const learningPathCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 // =============================================
+// FUZZY ROLE MATCHING
+// Matches "React Frontend Developer" -> "React Developer" in roleSkillMap
+// =============================================
+function findBestRoleMatch(targetRole, roleMap) {
+    if (!targetRole) return null;
+
+    const targetLower = String(targetRole).toLowerCase().trim();
+
+    // 1. Exact match first
+    if (roleMap[targetRole]) {
+        return { key: targetRole, skills: roleMap[targetRole], score: 1.0 };
+    }
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const [mapKey, mapSkills] of Object.entries(roleMap)) {
+        const mapKeyLower = mapKey.toLowerCase();
+        let score = 0;
+
+        if (mapKeyLower === targetLower) score = 100;
+        else if (targetLower.includes(mapKeyLower)) score = 80 + (mapKeyLower.split(' ').length * 5);
+        else if (mapKeyLower.includes(targetLower)) score = 60 + (targetLower.split(' ').length * 5);
+        else {
+            const targetWords = new Set(targetLower.split(/[\s\-\/]/).filter(w => w.length > 2));
+            const mapWords = new Set(mapKeyLower.split(/[\s\-\/]/).filter(w => w.length > 2));
+            let overlapCount = 0;
+            for (const word of targetWords) {
+                if (mapWords.has(word)) overlapCount++;
+                for (const mapWord of mapWords) {
+                    if (mapWord.includes(word) || word.includes(mapWord)) overlapCount++;
+                }
+            }
+            score = overlapCount * 20;
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = { key: mapKey, skills: mapSkills, score: score / 100 };
+        }
+    }
+
+    // Only return if we have a reasonable match (>30% confidence)
+    return bestScore >= 30 ? bestMatch : null;
+}
+
+// =============================================
 // FUZZY SKILL MATCHING HELPERS
 // =============================================
 
@@ -128,6 +175,37 @@ function skillsMatch(skill1, skill2) {
 }
 
 // =============================================
+// YOUTUBE RESOURCES (case-insensitive lookup)
+// =============================================
+const learningResourcesLower = (() => {
+    const m = new Map();
+    for (const [k, v] of Object.entries(learningResources || {})) {
+        m.set(String(k).toLowerCase().trim(), v);
+    }
+    return m;
+})();
+
+function getSkillResources(skillName) {
+    const key = String(skillName || '').toLowerCase().trim();
+    const res = learningResourcesLower.get(key) || learningResources[skillName];
+    if (res && res.url) {
+        return {
+            skill: skillName,
+            title: res.title || `${skillName} Tutorial`,
+            url: res.url,
+            platform: 'YouTube'
+        };
+    }
+    const searchQuery = encodeURIComponent(`${skillName} tutorial for beginners`);
+    return {
+        skill: skillName,
+        title: `${skillName} - Complete Tutorial`,
+        url: `https://www.youtube.com/results?search_query=${searchQuery}`,
+        platform: 'YouTube'
+    };
+}
+
+// =============================================
 // ROUTES
 // =============================================
 
@@ -155,23 +233,20 @@ router.get('/path', requireAuth, async (req, res) => {
 
         console.log(`   Found ${skillsForAI.length} user skills: ${skillsForAI.slice(0, 5).map(s => s.name).join(', ')}${skillsForAI.length > 5 ? '...' : ''}`);
 
-        // 3. Get target role
-        const targetRole = dbUser.target_role || dbUser.recommended_role || "Software Developer";
+        // 3. Get target role (allow instant switching via query param)
+        const targetRole = req.query.role || dbUser.target_role || dbUser.recommended_role || "Software Developer";
         console.log(`   Target role: ${targetRole}`);
 
-        // --- CACHE CHECK ---
-        const cacheKey = `${dbUser.id}-${targetRole}`;
-        const cachedEntry = learningPathCache.get(cacheKey);
-        if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL) {
-            console.log('⚡ Serving learning path from cache');
-            return res.json(cachedEntry.data);
-        }
+        // IMPORTANT: disable caching so switching roles updates instantly.
+        // (Cache previously caused the same path to show for different selections.)
 
         // =============================================
         // STEP 1: IMPROVED SKILL GAP ANALYSIS
         // =============================================
         const userSkillNames = skillsForAI.map(s => normalizeSkillName(s.name || ''));
-        const requiredSkills = roleSkillMap[targetRole] || [];
+        const roleMatch = findBestRoleMatch(targetRole, roleSkillMap);
+        const requiredSkills = roleMatch?.skills || roleSkillMap[targetRole] || [];
+        const matchedRoleName = roleMatch?.key || targetRole;
         
         let readinessScore = 0;
         let matchedSkills = [];
@@ -208,31 +283,28 @@ router.get('/path', requireAuth, async (req, res) => {
         // Section: Skill Gaps
         if (missingSkills.length > 0) {
             learningPath.push({
-                title: '🎯 Missing Skills',
-                items: missingSkills.map(skill => `${skill} — required for ${targetRole}`)
+                title: `🎯 Skills You Need for ${matchedRoleName}`,
+                items: missingSkills.map(skill => `❌ ${skill} — required for ${matchedRoleName}`)
             });
         } else if (requiredSkills.length > 0) {
             learningPath.push({
-                title: '✅ Skill Gaps',
-                items: ['Excellent! You have all the core skills for this role.']
+                title: `✅ You're Ready!`,
+                items: [`Excellent! You have all the core skills for ${matchedRoleName}.`]
             });
         }
 
-        // Section: Roadmap
+        // Section: Roadmap (include YouTube links)
         if (missingSkills.length > 0) {
             const roadmapSteps = missingSkills.map((skill, i) => {
-                const resource = learningResources[skill];
-                const resourceLink = resource 
-                    ? `${resource.title} (${resource.url})`
-                    : `Search tutorials for ${skill}`;
-                return `Step ${i + 1}: Learn ${skill} → ${resourceLink}`;
+                const resource = getSkillResources(skill);
+                return `Step ${i + 1}: Learn ${skill}\n   📺 ${resource.title}\n   🔗 ${resource.url}`;
             });
             roadmapSteps.push(`Step ${missingSkills.length + 1}: Build a portfolio project combining your new skills`);
-            roadmapSteps.push(`Step ${missingSkills.length + 2}: Prepare for ${targetRole} interviews`);
-            roadmapSteps.push(`Step ${missingSkills.length + 3}: Apply for ${targetRole} positions`);
+            roadmapSteps.push(`Step ${missingSkills.length + 2}: Prepare for ${matchedRoleName} interviews`);
+            roadmapSteps.push(`Step ${missingSkills.length + 3}: Apply for ${matchedRoleName} positions`);
 
             learningPath.push({
-                title: '🗺️ Learning Roadmap',
+                title: `🗺️ Step-by-Step Roadmap to ${matchedRoleName}`,
                 items: roadmapSteps
             });
         } else {
@@ -243,22 +315,19 @@ router.get('/path', requireAuth, async (req, res) => {
                     'Build advanced portfolio projects',
                     'Contribute to open source in your domain',
                     'Practice system design and architecture',
-                    `Apply for ${targetRole} positions`
+                    `Apply for ${matchedRoleName} positions`
                 ]
             });
         }
 
-        // Section: Resources
+        // Section: YouTube Resources (dedicated section)
         if (missingSkills.length > 0) {
             const resourceItems = missingSkills.map(skill => {
-                const resource = learningResources[skill];
-                if (resource) {
-                    return `📖 ${skill} → ${resource.title}\n   ${resource.url}`;
-                }
-                return `📖 ${skill} → https://www.youtube.com/results?search_query=${encodeURIComponent(skill + ' tutorial for beginners')}`;
+                const resource = getSkillResources(skill);
+                return `📺 ${skill} → ${resource.title}\n   ${resource.url}`;
             });
             learningPath.push({
-                title: '📚 Recommended Resources',
+                title: '📚 Recommended YouTube Tutorials',
                 items: resourceItems
             });
         }
@@ -286,7 +355,7 @@ router.get('/path', requireAuth, async (req, res) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     skills: skillsForAI,
-                    interest: targetRole,
+                    interest: matchedRoleName,
                     target_role: targetRole
                 }),
                 signal: controller.signal
@@ -342,7 +411,7 @@ router.get('/path', requireAuth, async (req, res) => {
         // STEP 4: HANDLE UNKNOWN ROLES
         // =============================================
         if (requiredSkills.length === 0 && !isAI) {
-            learningPath = generateFallbackPath(targetRole);
+            learningPath = generateFallbackPath(matchedRoleName);
             console.log(`Using fallback roadmap for unknown role: ${targetRole}`);
         }
 
@@ -353,7 +422,7 @@ router.get('/path', requireAuth, async (req, res) => {
             success: true,
             summary: {
                 matchPercentage: readinessScore,
-                targetRole: targetRole,
+                targetRole: matchedRoleName,
                 isAI: isAI,
                 skillsAnalyzed: skillsForAI.length,
                 skillsMatched: matchedSkills.length,
@@ -362,13 +431,7 @@ router.get('/path', requireAuth, async (req, res) => {
             learningPath: learningPath
         };
 
-        // Cache the response
-        learningPathCache.set(cacheKey, {
-            data: responseData,
-            timestamp: Date.now()
-        });
-
-        console.log(`✅ Learning path generated: ${readinessScore}% ready for ${targetRole}\n`);
+        console.log(`✅ Learning path generated: ${readinessScore}% ready for ${matchedRoleName}\n`);
         res.json(responseData);
 
     } catch (error) {

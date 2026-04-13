@@ -149,7 +149,7 @@ function App() {
   const handleSelectTarget = async (roleTitle) => {
     try {
       setTargetRole(roleTitle)
-      setLearningPath([]) // Show loading
+      setLearningPath([]) // Clear to show loading state
 
       // 1. Update backend profile
       await fetch(`${API_URL}/auth/profile`, {
@@ -159,8 +159,11 @@ function App() {
         credentials: 'include'
       })
 
-      // 2. Fetch new AI learning path
-      const res = await fetch(`${API_URL}/learning/path`, { credentials: 'include' })
+      // 2. Fetch NEW learning path for this specific role (no cache!)
+      const encodedRole = encodeURIComponent(roleTitle)
+      const res = await fetch(`${API_URL}/learning/path?role=${encodedRole}`, {
+        credentials: 'include'
+      })
       const data = await res.json()
       if (data.success) {
         setLearningPath(data.learningPath)
