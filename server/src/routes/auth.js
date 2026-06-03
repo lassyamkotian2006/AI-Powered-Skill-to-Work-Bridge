@@ -44,7 +44,6 @@ router.get('/github', (req, res) => {
 
     const params = new URLSearchParams({
         client_id: config.github.clientId,
-        redirect_uri: callbackUrl,
         scope: config.github.scopes.join(' '),
         state: generateState()
     });
@@ -109,8 +108,7 @@ router.get('/github/callback', async (req, res) => {
             body: JSON.stringify({
                 client_id: config.github.clientId,
                 client_secret: config.github.clientSecret,
-                code: code,
-                redirect_uri: callbackUrl
+                code: code
             })
         });
 
