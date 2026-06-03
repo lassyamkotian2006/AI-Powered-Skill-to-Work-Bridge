@@ -63,6 +63,13 @@ router.get('/github', (req, res) => {
 router.get('/github/callback', async (req, res) => {
     const { code, state, error } = req.query;
 
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const currentOrigin = `${protocol}://${host}`;
+    const redirectUrl = isProduction
+        ? currentOrigin
+        : (config.clientUrl || currentOrigin);
+
     if (!config.github.clientId || !config.github.clientSecret) {
         return res.status(503).json({
             error: 'GitHub OAuth not configured',
@@ -72,12 +79,12 @@ router.get('/github/callback', async (req, res) => {
 
     if (error) {
         console.error('❌ OAuth error:', error);
-        return res.status(400).json({ error: 'Authorization denied', details: error });
+        return res.redirect(`${redirectUrl}?githubError=${encodeURIComponent(`Authorization denied: ${error}`)}`);
     }
 
     if (req.session.oauthState && state !== req.session.oauthState) {
         console.error('❌ State mismatch - possible CSRF attack');
-        return res.status(400).json({ error: 'Invalid state parameter' });
+        return res.redirect(`${redirectUrl}?githubError=${encodeURIComponent('Invalid state parameter. Possible CSRF attack.')}`);
     }
     
     if (!req.session.oauthState) {
@@ -85,17 +92,12 @@ router.get('/github/callback', async (req, res) => {
         // In dev, allow it to reduce friction during restarts.
         if (isProduction) {
             console.error('❌ OAuth state missing (session lost). Restart login.');
-            return res.status(400).json({
-                error: 'Session expired',
-                message: 'Your login session expired. Please try "Continue with GitHub" again.'
-            });
+            return res.redirect(`${redirectUrl}?githubError=${encodeURIComponent('Your login session expired. Please try again.')}`);
         }
         console.warn('⚠️ OAuth state missing (dev mode). Proceeding.');
     }
 
     try {
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-        const host = req.get('host');
         const callbackUrl = config.github.callbackUrl || `${protocol}://${host}/auth/github/callback`;
 
         const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
@@ -116,12 +118,12 @@ router.get('/github/callback', async (req, res) => {
 
         if (tokenData.error) {
             console.error('❌ Token exchange error:', tokenData.error);
-            return res.status(400).json({ error: 'Failed to exchange code for token', details: tokenData.error });
+            return res.redirect(`${redirectUrl}?githubError=${encodeURIComponent(`Failed to exchange code for token: ${tokenData.error}`)}`);
         }
 
         if (!tokenData.access_token) {
             console.error('❌ Token exchange failed: no access_token returned');
-            return res.status(400).json({ error: 'Failed to exchange code for token' });
+            return res.redirect(`${redirectUrl}?githubError=${encodeURIComponent('Failed to exchange code for token')}`);
         }
 
         const accessToken = tokenData.access_token;
@@ -137,128 +139,54 @@ router.get('/github/callback', async (req, res) => {
 
         if (!chosenEmail) {
             console.error('❌ GitHub login blocked: no verified email found on GitHub account');
-            return res.status(400).json({
-                error: 'Email not verified',
-                message: 'Please verify your email address on GitHub, then try again.'
-            });
+            return res.redirect(`${redirectUrl}?githubError=${encodeURIComponent('No verified email found on your GitHub account. Please verify your email on GitHub.')}`);
         }
-
-        // Determine where to send the user after auth.
-        // In production the frontend is served by this same Express server (co-located),
-        // so ALWAYS redirect to the current origin. This prevents a misconfigured CLIENT_URL
-        // (e.g. "skill-bridge.onrender.com" vs "skill-bridge-68b9.onrender.com") from
-        // sending users to a dead "Not Found" page.
-        const currentOrigin = `${protocol}://${host}`;
-        const redirectUrl = isProduction
-            ? currentOrigin
-            : (config.clientUrl || currentOrigin);
 
         let user = await dbService.getUserByGithubId(githubUser.id);
 
         if (user) {
             user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
         } else {
-            user = await dbService.getUserByEmail(req.session.verifiedEmail);
+            user = await dbService.getUserByEmail(chosenEmail);
 
             if (user) {
                 user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
             } else {
-                user = await dbService.createUser(req.session.verifiedEmail, null, githubUser.login);
+                user = await dbService.createUser(chosenEmail, null, githubUser.login);
                 user = await dbService.linkGitHubAccount(user.id, githubUser, tokenData.access_token);
                 await dbService.updateUserVerification(user.id, true);
             }
         }
 
-        // SECURITY: do NOT auto-login after GitHub OAuth.
-        // Send OTP to the VERIFIED GitHub email and only create session user after OTP verification.
-        const otp = await otpService.generateOTP(chosenEmail);
-
-        req.session.githubOtpPending = {
-            email: chosenEmail,
-            token: otp.token,
-            timestamp: otp.timestamp,
-            accessToken,
-            githubUser: {
-                id: githubUser.id,
-                login: githubUser.login,
-                name: githubUser.name,
-                avatar_url: githubUser.avatar_url,
-                html_url: githubUser.html_url
-            },
-            dbUserId: user.id
+        // User verified via GitHub, log them in directly
+        // Harden session: regenerate on successful login to prevent session fixation.
+        const userSessionPayload = {
+            id: user.id,
+            githubId: githubUser.id,
+            login: githubUser.login,
+            name: githubUser.name || githubUser.login,
+            avatarUrl: githubUser.avatar_url,
+            profileUrl: githubUser.html_url
         };
-        req.session.oauthState = null;
 
-        console.log(`✅ GitHub verified for ${githubUser.login}. OTP required to complete login.`);
-        res.redirect(`${redirectUrl}?githubOtp=1`);
+        await new Promise((resolve, reject) => {
+            req.session.regenerate(err => (err ? reject(err) : resolve()));
+        });
+
+        req.session.accessToken = tokenData.access_token;
+        req.session.verifiedEmail = chosenEmail;
+        req.session.otpVerified = true;
+        req.session.user = userSessionPayload;
+        req.session.githubOtpPending = null;
+
+        console.log(`✅ GitHub verified for ${githubUser.login}. Logged in directly.`);
+        res.redirect(redirectUrl);
 
     } catch (err) {
         console.error('❌ OAuth callback error:', err);
-        res.status(500).json({ error: 'Authentication failed', message: err.message });
+        res.redirect(`${redirectUrl}?githubError=${encodeURIComponent(`Authentication failed: ${err.message}`)}`);
     }
 });
-
-/**
- * GET /auth/github/otp/pending
- * Used by the frontend to display OTP screen after GitHub OAuth.
- */
-router.get('/github/otp/pending', (req, res) => {
-    const pending = req.session?.githubOtpPending;
-    if (!pending) {
-        return res.json({ pending: false });
-    }
-    res.json({
-        pending: true,
-        email: pending.email,
-        token: pending.token,
-        timestamp: pending.timestamp
-    });
-});
-
-/**
- * POST /auth/github/otp/verify
- * Completes GitHub login after OTP verification.
- */
-router.post('/github/otp/verify', async (req, res) => {
-    const pending = req.session?.githubOtpPending;
-    const { code } = req.body || {};
-
-    if (!pending) {
-        return res.status(400).json({
-            success: false,
-            error: 'No pending GitHub verification',
-            message: 'Please click "Continue with GitHub" again.'
-        });
-    }
-
-    const ok = otpService.verifyOTP(pending.email, String(code || ''), pending.token, pending.timestamp);
-    if (!ok) {
-        return res.status(401).json({
-            success: false,
-            error: 'Invalid or expired code',
-            message: 'The verification code is incorrect or has expired. Please request a new one.'
-        });
-    }
-
-    // Harden session: regenerate on successful login to prevent session fixation.
-    const userSessionPayload = {
-        id: pending.dbUserId,
-        githubId: pending.githubUser.id,
-        login: pending.githubUser.login,
-        name: pending.githubUser.name || pending.githubUser.login,
-        avatarUrl: pending.githubUser.avatar_url,
-        profileUrl: pending.githubUser.html_url
-    };
-
-    await new Promise((resolve, reject) => {
-        req.session.regenerate(err => (err ? reject(err) : resolve()));
-    });
-
-    req.session.accessToken = pending.accessToken;
-    req.session.verifiedEmail = pending.email;
-    req.session.otpVerified = true;
-    req.session.user = userSessionPayload;
-    req.session.githubOtpPending = null;
 
     return res.json({ success: true });
 });

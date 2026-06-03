@@ -38,9 +38,7 @@ module.exports = {
   github: {
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackUrl: process.env.NODE_ENV === 'production'
-      ? null  // Always auto-derive from request host in production (co-located frontend)
-      : (process.env.CALLBACK_URL || 'http://localhost:3000/auth/github/callback'),
+    callbackUrl: null, // Always auto-derive from request host for maximum flexibility
     // Scopes we request from GitHub:
     // - read:user: Access user profile information
     // - user:email: Access user email addresses (needed if email is private)

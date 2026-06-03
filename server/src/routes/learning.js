@@ -345,65 +345,65 @@ router.get('/path', requireAuth, async (req, res) => {
         // =============================================
         let isAI = false;
 
-        // Try Python AI microservice
+        // Try Groq first for high-quality roadmap
         try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
-            
-            const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    skills: skillsForAI,
-                    interest: matchedRoleName,
-                    target_role: targetRole
-                }),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeout);
-
-            if (pythonResponse.ok) {
-                const aiData = await pythonResponse.json();
-                if (aiData.success && aiData.learning_path) {
-                    const aiSections = parseAIRoadmap(aiData.learning_path);
-                    if (aiSections.some(s => s.items.length > 0)) {
-                        learningPath.unshift(...aiSections.filter(s => s.items.length > 0));
-                        isAI = true;
-                        if (aiData.match_percentage) {
-                            readinessScore = Math.max(readinessScore, aiData.match_percentage);
-                        }
-                        console.log('🤖 AI Enhancement: Python microservice path added');
-                    }
+            const groqPath = await aiService.generateAILearningPath(skillsForAI, targetRole);
+            if (groqPath) {
+                const aiSections = [];
+                if (groqPath.missing_skills?.length > 0) {
+                    aiSections.push({ title: '🤖 AI-Detected Missing Skills', items: groqPath.missing_skills });
+                }
+                if (groqPath.step_by_step_plan?.length > 0) {
+                    aiSections.push({ title: '🤖 AI-Generated Roadmap', items: groqPath.step_by_step_plan });
+                }
+                if (groqPath.recommended_projects?.length > 0) {
+                    aiSections.push({ title: '🤖 Recommended Projects', items: groqPath.recommended_projects });
+                }
+                if (aiSections.length > 0) {
+                    learningPath.unshift(...aiSections);
+                    isAI = true;
+                    console.log('🤖 AI Enhancement: Groq path added');
                 }
             }
-        } catch (fetchError) {
-            console.log('⚠️ Python AI unavailable:', fetchError.message);
+        } catch (groqError) {
+            console.log('⚠️ Groq AI unavailable, falling back to Python service:', groqError.message);
         }
 
-        // Try Groq if Python failed
+        // Try Python AI microservice as a fallback if Groq failed
         if (!isAI) {
             try {
-                const groqPath = await aiService.generateAILearningPath(skillsForAI, targetRole);
-                if (groqPath) {
-                    const aiSections = [];
-                    if (groqPath.missing_skills?.length > 0) {
-                        aiSections.push({ title: '🤖 AI-Detected Missing Skills', items: groqPath.missing_skills });
-                    }
-                    if (groqPath.step_by_step_plan?.length > 0) {
-                        aiSections.push({ title: '🤖 AI-Generated Roadmap', items: groqPath.step_by_step_plan });
-                    }
-                    if (groqPath.recommended_projects?.length > 0) {
-                        aiSections.push({ title: '🤖 Recommended Projects', items: groqPath.recommended_projects });
-                    }
-                    if (aiSections.length > 0) {
-                        learningPath.unshift(...aiSections);
-                        isAI = true;
-                        console.log('🤖 AI Enhancement: Groq path added');
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                
+                const pythonResponse = await fetch(`${AI_SERVICE_URL}/generate-learning-path`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        skills: skillsForAI,
+                        interest: matchedRoleName,
+                        target_role: targetRole
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeout);
+
+                if (pythonResponse.ok) {
+                    const aiData = await pythonResponse.json();
+                    if (aiData.success && aiData.learning_path) {
+                        const aiSections = parseAIRoadmap(aiData.learning_path);
+                        if (aiSections.some(s => s.items.length > 0)) {
+                            learningPath.unshift(...aiSections.filter(s => s.items.length > 0));
+                            isAI = true;
+                            if (aiData.match_percentage) {
+                                readinessScore = Math.max(readinessScore, aiData.match_percentage);
+                            }
+                            console.log('🤖 AI Enhancement: Python microservice path added');
+                        }
                     }
                 }
-            } catch (groqError) {
-                console.log('⚠️ Groq AI unavailable:', groqError.message);
+            } catch (fetchError) {
+                console.log('⚠️ Python AI unavailable:', fetchError.message);
             }
         }
 

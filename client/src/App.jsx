@@ -322,34 +322,14 @@ function LoginPage({ onLogin }) {
     setSuccessMessage('')
   }, [mode])
 
-  // If redirected back from GitHub OAuth, open OTP verification screen
+  // If redirected back from GitHub OAuth, handle callback errors
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('githubOtp') !== '1') return
-
-    ;(async () => {
-      try {
-        const pendingRes = await fetch(`${API_URL}/auth/github/otp/pending`, { credentials: 'include' })
-        const pending = await pendingRes.json()
-        if (pending?.pending) {
-          setEmail(pending.email || '')
-          setOtpToken(pending.token || '')
-          setOtpTimestamp(pending.timestamp || 0)
-          setMode('otp')
-          setIsResetFlow(false)
-          setIsCodeVerified(false)
-          setOtpRequireGithubLinked(false)
-          setIsGithubOtpFlow(true)
-          setSuccessMessage('Enter the code sent to your GitHub email to finish login.')
-        } else {
-          setError('No pending GitHub verification. Please try again.')
-        }
-      } catch {
-        setError('Failed to start GitHub verification. Please try again.')
-      } finally {
-        window.history.replaceState({}, '', window.location.pathname)
-      }
-    })()
+    const githubError = params.get('githubError')
+    if (githubError) {
+      setError(decodeURIComponent(githubError))
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
 
   const goToLogin = () => {
@@ -457,23 +437,6 @@ function LoginPage({ onLogin }) {
     setError('')
     setSuccessMessage('')
     try {
-      if (isGithubOtpFlow) {
-        const res = await fetch(`${API_URL}/auth/github/otp/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: otp }),
-          credentials: 'include'
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          window.location.reload()
-        } else {
-          setError(data.error || data.message || 'Invalid verification code')
-        }
-        setLoading(false)
-        return
-      }
-
       if (isResetFlow && isCodeVerified) {
         // RESET FLOW STEP 2: Submit new password
         if (newPassword !== confirmPassword) {
