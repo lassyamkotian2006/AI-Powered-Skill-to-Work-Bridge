@@ -37,7 +37,7 @@ if (isProduction) {
  * Allows cross-origin requests from the frontend
  */
 app.use(cors({
-    origin: config.clientUrl,
+    origin: isProduction ? true : config.clientUrl,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']

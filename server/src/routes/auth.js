@@ -144,16 +144,14 @@ router.get('/github/callback', async (req, res) => {
         }
 
         // Determine where to send the user after auth.
-        // If the app is served by this same backend on Render, redirect to the current origin.
-        // This avoids misconfigured CLIENT_URL sending users to a dead route (causing "Not Found").
+        // In production the frontend is served by this same Express server (co-located),
+        // so ALWAYS redirect to the current origin. This prevents a misconfigured CLIENT_URL
+        // (e.g. "skill-bridge.onrender.com" vs "skill-bridge-68b9.onrender.com") from
+        // sending users to a dead "Not Found" page.
         const currentOrigin = `${protocol}://${host}`;
-        const configuredClientUrl = config.clientUrl;
-        const redirectUrl =
-            !configuredClientUrl ||
-            configuredClientUrl === '/' ||
-            (isProduction && /^http:\/\/localhost[:\/]/i.test(configuredClientUrl))
-                ? currentOrigin
-                : configuredClientUrl;
+        const redirectUrl = isProduction
+            ? currentOrigin
+            : (config.clientUrl || currentOrigin);
 
         let user = await dbService.getUserByGithubId(githubUser.id);
 
@@ -362,7 +360,14 @@ router.post('/login', async (req, res) => {
         res.json({ success: true, user: req.session.user });
     } catch (err) {
         console.error('❌ Login error:', err);
-        res.status(500).json({ error: 'Login failed' });
+        // Detect network/DNS errors when Supabase is unreachable
+        if (err.message && (err.message.includes('fetch failed') || err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo'))) {
+            return res.status(503).json({
+                error: 'Database unavailable',
+                message: 'Cannot connect to the database. The Supabase project may be paused. Please check your Supabase dashboard and resume the project if needed.'
+            });
+        }
+        res.status(500).json({ error: 'Login failed', message: err.message });
     }
 });
 

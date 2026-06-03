@@ -402,7 +402,7 @@ function LoginPage({ onLogin }) {
           setSuccessMessage('Verification code sent to your email.')
         }
       } else {
-        setError(data.error || 'Invalid credentials')
+        setError(data.message || data.error || 'Invalid credentials')
       }
     } catch (err) {
       setError('Connection error')

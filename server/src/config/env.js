@@ -38,10 +38,9 @@ module.exports = {
   github: {
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackUrl: process.env.CALLBACK_URL ||
-      (process.env.RENDER_EXTERNAL_URL
-        ? `${process.env.RENDER_EXTERNAL_URL}/auth/github/callback`
-        : (process.env.NODE_ENV === 'production' ? null : 'http://localhost:3000/auth/github/callback')),
+    callbackUrl: process.env.NODE_ENV === 'production'
+      ? null  // Always auto-derive from request host in production (co-located frontend)
+      : (process.env.CALLBACK_URL || 'http://localhost:3000/auth/github/callback'),
     // Scopes we request from GitHub:
     // - read:user: Access user profile information
     // - user:email: Access user email addresses (needed if email is private)
@@ -73,6 +72,6 @@ module.exports = {
   port: process.env.PORT || 3000,
 
   // Frontend URL (for redirects after OAuth) - defaults to root for co-located deployment
-  clientUrl: process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? '/' : 'http://localhost:5173')
+  clientUrl: process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? '/' : 'http://localhost:5174')
 };
 
