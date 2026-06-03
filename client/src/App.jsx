@@ -315,7 +315,6 @@ function LoginPage({ onLogin }) {
   const [isCodeVerified, setIsCodeVerified] = useState(false)
   const [otpRequireGithubLinked, setOtpRequireGithubLinked] = useState(false)
   const [isGithubOtpFlow, setIsGithubOtpFlow] = useState(false)
-  const [githubEmail, setGithubEmail] = useState('')
 
   // Clear messages on mode change
   useEffect(() => {
@@ -323,19 +322,9 @@ function LoginPage({ onLogin }) {
     setSuccessMessage('')
   }, [mode])
 
-  // If redirected back from GitHub OAuth, open OTP verification screen or show error
+  // If redirected back from GitHub OAuth, open OTP verification screen
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-
-    // Handle GitHub email mismatch error redirect
-    const githubError = params.get('githubError')
-    if (githubError) {
-      setError(decodeURIComponent(githubError))
-      setMode('github-email')
-      window.history.replaceState({}, '', window.location.pathname)
-      return
-    }
-
     if (params.get('githubOtp') !== '1') return
 
     ;(async () => {
@@ -618,36 +607,8 @@ function LoginPage({ onLogin }) {
   }
 
   const startGitHubAuth = () => {
-    setError('')
-    setSuccessMessage('')
-    setGithubEmail('')
-    setMode('github-email')
-  }
-
-  const handleGitHubEmailSubmit = async (e) => {
-    e.preventDefault()
     setLoading(true)
-    setError('')
-    setSuccessMessage('')
-    try {
-      const res = await fetch(`${API_URL}/auth/github/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: githubEmail }),
-        credentials: 'include'
-      })
-      const data = await res.json()
-      if (res.ok) {
-        // Email stored in session, now redirect to GitHub OAuth
-        window.location.href = `${API_URL}/auth/github`
-      } else {
-        setError(data.error || 'Failed to start GitHub authentication.')
-        setLoading(false)
-      }
-    } catch (err) {
-      setError('Connection error. Please try again.')
-      setLoading(false)
-    }
+    window.location.href = `${API_URL}/auth/github`
   }
 
   return (
@@ -665,7 +626,6 @@ function LoginPage({ onLogin }) {
           <p className="login-instruction">
             {mode === 'login' && 'Please fill in all fields to proceed.'}
             {mode === 'signup' && 'Create your account to start your journey.'}
-            {mode === 'github-email' && 'Enter the email associated with your GitHub account.'}
             {mode === 'otp' && !isCodeVerified && 'Enter the 6-digit code sent to your email.'}
             {mode === 'otp' && isCodeVerified && 'Create your new password.'}
             {mode === 'reset' && 'Verify your identity to reset your password.'}
@@ -901,36 +861,6 @@ function LoginPage({ onLogin }) {
               </button>
               <p className="github-hint">Secure authentication via GitHub for technical project mapping</p>
             </>
-          )}
-
-          {mode === 'github-email' && (
-            <form onSubmit={handleGitHubEmailSubmit}>
-              <div className="form-group-modern">
-                <label className="form-label-modern">GITHUB EMAIL ADDRESS</label>
-                <div className="input-field-modern">
-                  <span className="material-symbols-outlined input-icon-modern">mail</span>
-                  <input
-                    type="email"
-                    placeholder="your-github-email@example.com"
-                    value={githubEmail}
-                    onChange={(e) => setGithubEmail(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.4rem' }}>
-                  This must match a verified email on your GitHub account.
-                </p>
-              </div>
-
-              <button className="btn-github-auth" type="submit" disabled={loading} style={{ marginTop: '0.5rem' }}>
-                <svg viewBox="0 0 24 24" className="github-icon-svg">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
-                </svg>
-                {loading ? 'Verifying...' : 'Verify & Connect with GitHub'}
-              </button>
-              <button type="button" className="back-to-login" onClick={goToLogin} style={{ marginTop: '0.5rem' }}>Back to Sign In</button>
-            </form>
           )}
 
           <div className="login-footer-switch">

@@ -27,25 +27,6 @@ const router = express.Router();
 const isProduction = process.env.NODE_ENV === 'production';
 
 /**
- * POST /auth/github/start
- * Step 1 of secure GitHub login: User submits their GitHub-associated email.
- * The email is stored in the session and verified against GitHub after OAuth.
- */
-router.post('/github/start', (req, res) => {
-    let { email } = req.body;
-    email = email?.trim()?.toLowerCase();
-
-    if (!email || !email.includes('@')) {
-        return res.status(400).json({ error: 'A valid email address is required.' });
-    }
-
-    // Store the claimed email in the session for verification after GitHub callback
-    req.session.claimedGithubEmail = email;
-    console.log(`📧 GitHub auth started: user claims email ${email}`);
-    res.json({ success: true, message: 'Email stored. Redirecting to GitHub...' });
-});
-
-/**
  * GET /auth/github
  * Redirects to GitHub for authorization
  */
@@ -161,29 +142,6 @@ router.get('/github/callback', async (req, res) => {
                 message: 'Please verify your email address on GitHub, then try again.'
             });
         }
-
-        // SECURITY: Verify the email the user claimed matches a verified email on their GitHub account.
-        // This prevents someone from initiating OAuth with a fake email address.
-        const claimedEmail = req.session.claimedGithubEmail?.toLowerCase();
-        const verifiedGithubEmails = emails.filter(e => e.verified).map(e => e.email.toLowerCase());
-
-        if (!claimedEmail) {
-            console.error('❌ GitHub login blocked: no claimed email in session (bypassed start step)');
-            const currentOrigin2 = `${protocol}://${host}`;
-            const redirectUrl2 = isProduction ? currentOrigin2 : (config.clientUrl || currentOrigin2);
-            return res.redirect(`${redirectUrl2}?githubError=${encodeURIComponent('Please enter your email before connecting with GitHub.')}`);
-        }
-
-        if (!verifiedGithubEmails.includes(claimedEmail)) {
-            console.error(`❌ GitHub login blocked: claimed email ${claimedEmail} does not match any verified GitHub email`);
-            req.session.claimedGithubEmail = null; // Clear for next attempt
-            const currentOrigin2 = `${protocol}://${host}`;
-            const redirectUrl2 = isProduction ? currentOrigin2 : (config.clientUrl || currentOrigin2);
-            return res.redirect(`${redirectUrl2}?githubError=${encodeURIComponent('The email you entered does not match any verified email on this GitHub account. Please try again with the correct email.')}`);
-        }
-
-        console.log(`✅ Claimed email ${claimedEmail} matches verified GitHub email`);
-        req.session.claimedGithubEmail = null; // Clear after successful verification
 
         // Determine where to send the user after auth.
         // In production the frontend is served by this same Express server (co-located),
