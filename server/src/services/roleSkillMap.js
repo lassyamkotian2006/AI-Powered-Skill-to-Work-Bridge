@@ -242,8 +242,46 @@ const roleSkillMap = {
         "JavaScript"
     ],
 
+    "C Developer": [
+        "C", "Data Structures", "Algorithms",
+        "Memory Management", "Pointers",
+        "Linux", "Makefiles", "Debugging",
+        "Operating Systems", "System Programming"
+    ],
+
+    "C++ Developer": [
+        "C++", "Data Structures", "Algorithms",
+        "Object-Oriented Programming", "STL",
+        "Memory Management", "Multithreading",
+        "Design Patterns", "CMake"
+    ],
+
+    "Systems Programmer": [
+        "C", "Linux", "Operating Systems",
+        "System Programming", "Networking",
+        "Memory Management", "Debugging"
+    ],
+
+    "Embedded Engineer": [
+        "C", "C++", "Embedded Systems",
+        "RTOS", "Microcontrollers",
+        "Hardware Interfaces", "Debugging"
+    ],
+
+    "Firmware Developer": [
+        "C", "Embedded Systems", "RTOS",
+        "Microcontrollers", "Hardware Interfaces",
+        "Debugging", "Testing"
+    ],
+
+    "Low-Level Developer": [
+        "C", "Assembly", "Operating Systems",
+        "Memory Management", "Linux",
+        "System Programming", "Debugging"
+    ],
+
     "Embedded Systems Engineer": [
-        "C++", "Programming Fundamentals",
+        "C", "C++", "Programming Fundamentals",
         "Networking", "Linux", "Testing"
     ],
 
