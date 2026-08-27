@@ -87,12 +87,12 @@ async function getUserById(id) {
  */
 async function getUserByEmail(email) {
     if (!supabase || !email) return null;
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     const { data, error } = await supabase
         .from('users')
         .select('*')
-        .ilike('email', cleanEmail)
+        .eq('email', cleanEmail)
         .single();
 
     if (error && error.code !== 'PGRST116') {
@@ -113,7 +113,7 @@ async function createUser(email, passwordHash, username) {
     const { data, error } = await supabase
         .from('users')
         .insert({
-            email,
+            email: email.trim().toLowerCase(),
             password_hash: passwordHash,
             username: username || email.split('@')[0],
             is_email_verified: false

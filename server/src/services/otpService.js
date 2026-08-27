@@ -12,7 +12,7 @@ const { sendOTP: sendOTPEmail } = require('./emailService');
 
 // Secret for HMAC signing
 const HMAC_SECRET = process.env.SESSION_SECRET || 'skill-bridge-otp-secret';
-const OTP_EXPIRY_SECONDS = Math.max(10, parseInt(process.env.OTP_EXPIRY_SECONDS || '60', 10) || 60);
+const OTP_EXPIRY_SECONDS = Math.max(10, parseInt(process.env.OTP_EXPIRY_SECONDS || '300', 10) || 300);
 
 // In-memory "latest OTP per email" guard.
 // Prevents old codes from being valid after resend.

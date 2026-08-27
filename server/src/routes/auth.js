@@ -203,8 +203,25 @@ router.post('/register', async (req, res) => {
 
     try {
         const existingUser = await dbService.getUserByEmail(email);
+        console.log(`📋 Register check for ${email}: existingUser = ${existingUser ? `found (id: ${existingUser.id})` : 'not found'}`);
         if (existingUser) {
-            return res.status(400).json({ error: 'Email already registered' });
+            // If the account exists but has NO password (GitHub-only), allow adding a password
+            if (!existingUser.password_hash) {
+                console.log(`🔗 GitHub-only account found for ${email}. Adding password.`);
+                const saltRounds = 10;
+                const passwordHash = await bcrypt.hash(password, saltRounds);
+                await dbService.updateUserPassword(existingUser.id, passwordHash);
+                if (username) {
+                    // Update username only if provided and different
+                    await dbService.updateUserVerification(existingUser.id, existingUser.is_email_verified);
+                }
+                return res.status(200).json({
+                    success: true,
+                    user: { email: existingUser.email, username: existingUser.username },
+                    message: 'Password added to your account. You can now log in with email and password.'
+                });
+            }
+            return res.status(400).json({ error: 'Email already registered. Please sign in instead.' });
         }
 
         const saltRounds = 10;
@@ -220,6 +237,17 @@ router.post('/register', async (req, res) => {
         });
     } catch (err) {
         console.error('❌ Registration error:', err);
+        // Detect network/DNS errors when Supabase is unreachable
+        if (err.message && (err.message.includes('fetch failed') || err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo'))) {
+            return res.status(503).json({
+                error: 'Database unavailable',
+                message: 'Cannot connect to the database. The Supabase project may be paused. Please check your Supabase dashboard and resume the project if needed.'
+            });
+        }
+        // Handle Supabase unique constraint violation (email already exists at DB level)
+        if (err.code === '23505' || (err.message && err.message.includes('duplicate key'))) {
+            return res.status(400).json({ error: 'Email already registered' });
+        }
         res.status(500).json({ error: 'Registration failed', details: err.message });
     }
 });
@@ -242,10 +270,11 @@ router.post('/login', async (req, res) => {
 
         if (!user.password_hash) {
             console.warn(`❌ Login failed: No password for ${email} (GitHub-only account?)`);
-            return res.status(401).json({ error: 'This account uses GitHub login. Please continue with GitHub.' });
+            return res.status(401).json({ error: 'No password set for this account. Please use "Create Account" to set a password, or continue with GitHub.' });
         }
 
-        if (!user.is_email_verified && !req.session.otpVerified) {
+        // Skip email verification check for GitHub-linked accounts (GitHub already verified them)
+        if (!user.is_email_verified && !user.github_id && !req.session.otpVerified) {
             console.warn(`⚠️ Login paused: Email not verified for ${email}`);
             return res.status(401).json({ error: 'Email not verified', needsVerification: true });
         }

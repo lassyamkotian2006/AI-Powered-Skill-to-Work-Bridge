@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import './App.css'
@@ -29,39 +29,12 @@ function App() {
   const [fetchingRepos, setFetchingRepos] = useState(false)
 
   // Profile management state
+  const [interests, setInterests] = useState('')
   const [targetRole, setTargetRole] = useState('')
   const [matchPercentage, setMatchPercentage] = useState(0)
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
 
-  // Check if user is logged in
-  useEffect(() => {
-    checkAuth()
-  }, [])
-
-  const checkAuth = async () => {
+  const loadDashboardData = useCallback(async (interestOverride) => {
     try {
-      const res = await fetch(`${API_URL}/auth/user`, { credentials: 'include' })
-      const data = await res.json()
-      if (data.authenticated) {
-        setUser(data.user)
-        // Fetch profile data
-        const profileRes = await fetch(`${API_URL}/auth/profile`, { credentials: 'include' })
-        const profileData = await profileRes.json()
-        if (profileData.success) {
-          setInterests(profileData.profile.interests || '')
-          setTargetRole(profileData.profile.targetRole || '')
-        }
-        loadDashboardData()
-      }
-    } catch (err) {
-      console.log('Not authenticated')
-    }
-    setLoading(false)
-  }
-
-  const loadDashboardData = async () => {
-    try {
-      // Fetch skills and learning path in parallel
       const [skillsRes, learningRes] = await Promise.all([
         fetch(`${API_URL}/skills`, { credentials: 'include' }),
         fetch(`${API_URL}/learning/path`, { credentials: 'include' })
@@ -70,10 +43,9 @@ function App() {
       const skillsData = await skillsRes.json()
       const learningData = await learningRes.json()
 
-      let currentSkills = skills
-      if (skillsData.skills && skillsData.skills.length > 0) {
-        setSkills(skillsData.skills)
-        currentSkills = skillsData.skills
+      const currentSkills = skillsData.skills?.length > 0 ? skillsData.skills : []
+      if (currentSkills.length > 0) {
+        setSkills(currentSkills)
       }
 
       if (learningData.learningPath) {
@@ -83,14 +55,16 @@ function App() {
         }
       }
 
-      // Fetch AI job matches (POST with skills + interest)
       if (currentSkills.length > 0) {
         try {
           const skillNames = currentSkills.map(s => s.name || s.skills?.name || 'Unknown')
           const jobsRes = await fetch(`${API_URL}/jobs/generate-matches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ skills: skillNames, interest: targetRole }),
+            body: JSON.stringify({
+              skills: skillNames,
+              interest: interestOverride ?? targetRole
+            }),
             credentials: 'include'
           })
           const jobsData = await jobsRes.json()
@@ -103,7 +77,33 @@ function App() {
     } catch (err) {
       console.error('Error loading dashboard:', err)
     }
-  }
+  }, [targetRole])
+
+  // Check if user is logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API_URL}/auth/user`, { credentials: 'include' })
+        const data = await res.json()
+        if (data.authenticated) {
+          setUser(data.user)
+          const profileRes = await fetch(`${API_URL}/auth/profile`, { credentials: 'include' })
+          const profileData = await profileRes.json()
+          let profileInterest = ''
+          if (profileData.success) {
+            setInterests(profileData.profile.interests || '')
+            setTargetRole(profileData.profile.targetRole || '')
+            profileInterest = profileData.profile.targetRole || profileData.profile.interests || ''
+          }
+          loadDashboardData(profileInterest)
+        }
+      } catch {
+        console.log('Not authenticated')
+      }
+      setLoading(false)
+    }
+    checkAuth()
+  }, [loadDashboardData])
 
   const analyzeSkills = async () => {
     setFetchingRepos(true)
@@ -179,10 +179,6 @@ function App() {
     }
   }
 
-  const login = () => {
-    window.location.href = `${API_URL}/auth/github`
-  }
-
   const logout = async () => {
     await fetch(`${API_URL}/auth/logout`, { credentials: 'include' })
     setUser(null)
@@ -204,7 +200,7 @@ function App() {
   }
 
   if (!user) {
-    return <LoginPage onLogin={login} />
+    return <LoginPage />
   }
 
   // Repository selection view
@@ -283,9 +279,7 @@ function App() {
       <AIAssistant
         show={showAssistant}
         onToggle={() => setShowAssistant(!showAssistant)}
-        skills={skills}
-        jobs={jobRoles}
-        interests={targetRole}
+        interests={interests || targetRole}
       />
     </div>
   )
@@ -295,13 +289,21 @@ function App() {
 // LOGIN PAGE - FIXED OTP FLOW
 // =============================================
 
-function LoginPage({ onLogin }) {
+function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [otp, setOtp] = useState('')
   const [mode, setMode] = useState('login')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const githubError = params.get('githubError')
+    if (githubError) {
+      window.history.replaceState({}, '', window.location.pathname)
+      return decodeURIComponent(githubError)
+    }
+    return ''
+  })
   const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [newPassword, setNewPassword] = useState('')
@@ -314,26 +316,15 @@ function LoginPage({ onLogin }) {
   const [otpTimestamp, setOtpTimestamp] = useState(0)
   const [isCodeVerified, setIsCodeVerified] = useState(false)
   const [otpRequireGithubLinked, setOtpRequireGithubLinked] = useState(false)
-  const [isGithubOtpFlow, setIsGithubOtpFlow] = useState(false)
 
-  // Clear messages on mode change
-  useEffect(() => {
+  const switchMode = (newMode) => {
     setError('')
     setSuccessMessage('')
-  }, [mode])
-
-  // If redirected back from GitHub OAuth, handle callback errors
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const githubError = params.get('githubError')
-    if (githubError) {
-      setError(decodeURIComponent(githubError))
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-  }, [])
+    setMode(newMode)
+  }
 
   const goToLogin = () => {
-    setMode('login')
+    switchMode('login')
     setIsResetFlow(false)
     setIsCodeVerified(false)
     setOtp('')
@@ -341,9 +332,6 @@ function LoginPage({ onLogin }) {
     setOtpTimestamp(0)
     setNewPassword('')
     setConfirmPassword('')
-    setError('')
-    setSuccessMessage('')
-    setIsGithubOtpFlow(false)
   }
 
   const handleLogin = async (e) => {
@@ -365,7 +353,7 @@ function LoginPage({ onLogin }) {
         const otpRes = await fetch(`${API_URL}/auth/otp/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, requireGithubLinked: true }),
+          body: JSON.stringify({ email, requireGithubLinked: false }),
           credentials: 'include'
         })
         const otpData = await otpRes.json()
@@ -373,8 +361,8 @@ function LoginPage({ onLogin }) {
           setOtpToken(otpData.token)
           setOtpTimestamp(otpData.timestamp)
         }
-        setMode('otp')
-        setOtpRequireGithubLinked(true)
+        switchMode('otp')
+        setOtpRequireGithubLinked(false)
         if (otpData.emailSent === false) {
           setError('Email delivery failed. Check server console for the code.')
         } else {
@@ -384,7 +372,7 @@ function LoginPage({ onLogin }) {
       } else {
         setError(data.message || data.error || 'Invalid credentials')
       }
-    } catch (err) {
+    } catch {
       setError('Connection error')
     }
     setLoading(false)
@@ -415,7 +403,7 @@ function LoginPage({ onLogin }) {
           setOtpToken(otpData.token)
           setOtpTimestamp(otpData.timestamp)
         }
-        setMode('otp')
+        switchMode('otp')
         setOtpRequireGithubLinked(false)
         if (otpData.emailSent === false) {
           setError('Email delivery failed. Check server console for the code.')
@@ -423,9 +411,9 @@ function LoginPage({ onLogin }) {
           setSuccessMessage('Verification code sent to your email.')
         }
       } else {
-        setError(data.error || 'Registration failed')
+        setError(data.message || data.error || 'Registration failed')
       }
-    } catch (err) {
+    } catch {
       setError('Connection error')
     }
     setLoading(false)
@@ -492,7 +480,7 @@ function LoginPage({ onLogin }) {
             const data = await res.json()
             setError(data.error || data.message || 'Invalid verification code')
           }
-        } catch (err) {
+        } catch {
           setError('Connection error. Please try again.')
         }
       }
@@ -519,7 +507,7 @@ function LoginPage({ onLogin }) {
       if (res.ok) {
         setOtpToken(data.token || '')
         setOtpTimestamp(data.timestamp || 0)
-        setMode('otp')
+        switchMode('otp')
         setIsResetFlow(true)
         setIsCodeVerified(false)
         if (data.emailSent === false) {
@@ -530,43 +518,10 @@ function LoginPage({ onLogin }) {
       } else {
         setError('Failed to send reset code.')
       }
-    } catch (err) {
-      setError('Connection error')
-    }
-    setLoading(false)
-  }
-
-  const resendCode = async () => {
-    setLoading(true)
-    setError('')
-    setSuccessMessage('')
-    try {
-      const res = await fetch(`${API_URL}/auth/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, requireGithubLinked: otpRequireGithubLinked }),
-        credentials: 'include'
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setOtpToken(data.token || '')
-        setOtpTimestamp(data.timestamp || 0)
-        if (data.emailSent === false) {
-          setError('Email delivery failed. Check server logs for the code.')
-        } else {
-          setSuccessMessage('New code sent to your email.')
-        }
-      } else {
-        setError('Failed to resend code.')
-      }
     } catch {
       setError('Connection error')
     }
     setLoading(false)
-  }
-
-  const backToLogin = () => {
-    goToLogin()
   }
 
   const startGitHubAuth = () => {
@@ -633,7 +588,7 @@ function LoginPage({ onLogin }) {
                 <div className="flex justify-between items-center">
                   <label className="form-label-modern">PASSWORD</label>
                   {mode === 'login' && (
-                    <button type="button" className="forgot-link" onClick={() => setMode('reset')}>Forgot?</button>
+                    <button type="button" className="forgot-link" onClick={() => switchMode('reset')}>Forgot?</button>
                   )}
                 </div>
                 <div className="input-field-modern">
@@ -828,7 +783,7 @@ function LoginPage({ onLogin }) {
 
           <div className="login-footer-switch">
             {mode === 'login' ? (
-              <p>Don't have an account? <button type="button" onClick={() => setMode('signup')} className="green-link">Create Account</button></p>
+              <p>Don't have an account? <button type="button" onClick={() => switchMode('signup')} className="green-link">Create Account</button></p>
             ) : (
               <p>Already have an account? <button type="button" onClick={goToLogin} className="green-link">Sign In</button></p>
             )}
@@ -1181,7 +1136,7 @@ function JobsTab({ domain, roles = [], onSelectTarget, activeTargetRole }) {
   )
 }
 
-function EnhancedJobCard({ job, rank, onPreview, onSelectTarget, isActiveTarget }) {
+function EnhancedJobCard({ job, onPreview, onSelectTarget, isActiveTarget }) {
   const getScoreClass = (score) => {
     if (score >= 80) return 'excellent'
     if (score >= 60) return 'good'
@@ -2003,7 +1958,7 @@ function ResumeFullPage({ resume, user, onBack }) {
 // AI ASSISTANT WIDGET
 // =============================================
 
-function AIAssistant({ show, onToggle, skills, jobs, interests }) {
+function AIAssistant({ show, onToggle, interests }) {
   const [messages, setMessages] = useState([
     { type: 'bot', text: "Hi! I'm your AI Career Assistant. Tell me your interests and I can help you reach 100% match for any role! What's on your mind?" }
   ])
@@ -2023,7 +1978,7 @@ function AIAssistant({ show, onToggle, skills, jobs, interests }) {
     try {
       const response = await generateAIResponse(question, interests)
       setMessages(prev => [...prev, { type: 'bot', text: response }])
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { type: 'bot', text: "I'm having a little trouble connecting. Please try again in a moment!" }])
     } finally {
       setIsTyping(false)
