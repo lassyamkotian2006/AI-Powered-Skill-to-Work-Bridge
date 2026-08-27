@@ -511,12 +511,12 @@ function LoginPage() {
         setIsResetFlow(true)
         setIsCodeVerified(false)
         if (data.emailSent === false) {
-          setError('Email delivery failed. Check server console for the code.')
+          setError('Email delivery failed. The code has been logged on the server console.')
         } else {
-          setSuccessMessage('Verification code sent to your email. Check spam folder too.')
+          setSuccessMessage('Verification code sent to your email. Check your spam/junk folder too.')
         }
       } else {
-        setError('Failed to send reset code.')
+        setError(data.message || data.error || 'Failed to send reset code.')
       }
     } catch {
       setError('Connection error')
