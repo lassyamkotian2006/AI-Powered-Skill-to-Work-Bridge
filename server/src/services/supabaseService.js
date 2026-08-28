@@ -222,6 +222,51 @@ async function linkGitHubAccount(userId, githubUser, accessToken) {
     return data;
 }
 
+/**
+ * Get user by Google ID
+ */
+async function getUserByGoogleId(googleId) {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('google_id', googleId)
+        .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+}
+
+/**
+ * Link Google account to an existing user
+ */
+async function linkGoogleAccount(userId, googleUser) {
+    if (!supabase) throw new Error('Database not configured');
+
+    console.log(`🔗 Linking Google account ${googleUser.email} to user ${userId}`);
+
+    const updateFields = {
+        google_id: googleUser.id,
+        updated_at: new Date().toISOString()
+    };
+    if (googleUser.name) updateFields.name = googleUser.name;
+    if (googleUser.picture) updateFields.avatar_url = googleUser.picture;
+
+    const { data, error } = await supabase
+        .from('users')
+        .update(updateFields)
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('❌ linkGoogleAccount error:', error);
+        throw error;
+    }
+    return data;
+}
+
 // =============================================
 // REPOSITORY OPERATIONS
 // =============================================
@@ -562,6 +607,8 @@ module.exports = {
     updateUserInterests,
     updateUserTargetRole,
     linkGitHubAccount,
+    getUserByGoogleId,
+    linkGoogleAccount,
 
     // Repository operations
     saveRepositories,

@@ -23,7 +23,8 @@ const optionalServices = {
   'Groq AI': !!process.env.GROQ_API_KEY,
   'Brevo Email': !!process.env.BREVO_API_KEY,
   'Resend Email': !!process.env.RESEND_API_KEY,
-  'Email SMTP (fallback)': !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
+  'Email SMTP (fallback)': !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+  'Google OAuth': !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 };
 
 console.log('');
@@ -38,12 +39,19 @@ module.exports = {
   github: {
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackUrl: null, // Always auto-derive from request host for maximum flexibility
+    callbackUrl: process.env.CALLBACK_URL || null, // Falls back to auto-derive from request host
     // Scopes we request from GitHub:
     // - read:user: Access user profile information
     // - user:email: Access user email addresses (needed if email is private)
     // - repo: Full access to repositories (needed for README, file tree, commits)
     scopes: ['read:user', 'user:email', 'repo']
+  },
+
+  // Google OAuth credentials
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL || null
   },
 
   // Session configuration

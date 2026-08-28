@@ -186,6 +186,163 @@ router.get('/github/callback', async (req, res) => {
     }
 });
 
+// =============================================
+// GOOGLE OAUTH
+// =============================================
+
+/**
+ * GET /auth/google
+ * Redirects to Google for authorization
+ */
+router.get('/google', (req, res) => {
+    if (!config.google.clientId || !config.google.clientSecret) {
+        return res.status(503).json({
+            error: 'Google OAuth not configured',
+            message: 'Missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET on the server.'
+        });
+    }
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const callbackUrl = config.google.callbackUrl || `${protocol}://${host}/auth/google/callback`;
+
+    const state = generateState();
+    req.session.googleOauthState = state;
+
+    const params = new URLSearchParams({
+        client_id: config.google.clientId,
+        redirect_uri: callbackUrl,
+        response_type: 'code',
+        scope: 'openid email profile',
+        state: state,
+        access_type: 'offline',
+        prompt: 'select_account'
+    });
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    console.log(`🔗 Redirecting to Google for authorization...`);
+    res.redirect(authUrl);
+});
+
+/**
+ * GET /auth/google/callback
+ * Handles Google OAuth callback
+ */
+router.get('/google/callback', async (req, res) => {
+    const { code, state, error: oauthError } = req.query;
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const currentOrigin = `${protocol}://${host}`;
+    const redirectUrl = isProduction
+        ? currentOrigin
+        : (config.clientUrl || currentOrigin);
+
+    if (!config.google.clientId || !config.google.clientSecret) {
+        return res.status(503).json({
+            error: 'Google OAuth not configured',
+            message: 'Missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET on the server.'
+        });
+    }
+
+    if (oauthError) {
+        console.error('❌ Google OAuth error:', oauthError);
+        return res.redirect(`${redirectUrl}?googleError=${encodeURIComponent(`Authorization denied: ${oauthError}`)}`);
+    }
+
+    if (req.session.googleOauthState && state !== req.session.googleOauthState) {
+        console.error('❌ State mismatch - possible CSRF attack');
+        return res.redirect(`${redirectUrl}?googleError=${encodeURIComponent('Invalid state parameter. Possible CSRF attack.')}`);
+    }
+
+    if (!req.session.googleOauthState) {
+        if (isProduction) {
+            console.error('❌ Google OAuth state missing (session lost). Restart login.');
+            return res.redirect(`${redirectUrl}?googleError=${encodeURIComponent('Your login session expired. Please try again.')}`);
+        }
+        console.warn('⚠️ Google OAuth state missing (dev mode). Proceeding.');
+    }
+
+    try {
+        const callbackUrl = config.google.callbackUrl || `${protocol}://${host}/auth/google/callback`;
+
+        // Exchange authorization code for tokens
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: config.google.clientId,
+                client_secret: config.google.clientSecret,
+                code: code,
+                redirect_uri: callbackUrl,
+                grant_type: 'authorization_code'
+            })
+        });
+
+        const tokenData = await tokenResponse.json();
+
+        if (tokenData.error) {
+            console.error('❌ Google token exchange error:', tokenData.error);
+            return res.redirect(`${redirectUrl}?googleError=${encodeURIComponent(`Failed to exchange code: ${tokenData.error_description || tokenData.error}`)}`);
+        }
+
+        // Fetch user info from Google
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+        });
+
+        const googleUser = await userInfoResponse.json();
+
+        if (!googleUser.email) {
+            console.error('❌ Google login blocked: no email returned');
+            return res.redirect(`${redirectUrl}?googleError=${encodeURIComponent('No email found on your Google account.')}`);
+        }
+
+        // Look up user: first by google_id, then by email
+        let user = await dbService.getUserByGoogleId(googleUser.id);
+
+        if (user) {
+            user = await dbService.linkGoogleAccount(user.id, googleUser);
+        } else {
+            user = await dbService.getUserByEmail(googleUser.email);
+
+            if (user) {
+                user = await dbService.linkGoogleAccount(user.id, googleUser);
+            } else {
+                // Create a new user — Google already verified the email
+                user = await dbService.createUser(googleUser.email, null, googleUser.name || googleUser.email.split('@')[0]);
+                user = await dbService.linkGoogleAccount(user.id, googleUser);
+                await dbService.updateUserVerification(user.id, true);
+            }
+        }
+
+        // Build session and log in
+        const userSessionPayload = {
+            id: user.id,
+            googleId: googleUser.id,
+            login: user.username || googleUser.name,
+            name: googleUser.name || user.username,
+            avatarUrl: googleUser.picture || user.avatar_url
+        };
+
+        await new Promise((resolve, reject) => {
+            req.session.regenerate(err => (err ? reject(err) : resolve()));
+        });
+
+        req.session.user = userSessionPayload;
+        req.session.verifiedEmail = googleUser.email;
+        req.session.otpVerified = true;
+        req.session.googleOauthState = null;
+
+        console.log(`✅ Google verified for ${googleUser.email}. Logged in directly.`);
+        res.redirect(redirectUrl);
+
+    } catch (err) {
+        console.error('❌ Google OAuth callback error:', err);
+        res.redirect(`${redirectUrl}?googleError=${encodeURIComponent(`Authentication failed: ${err.message}`)}`);
+    }
+});
+
 /**
  * POST /auth/register
  */
